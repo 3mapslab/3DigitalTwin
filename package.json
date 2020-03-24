@@ -1,5 +1,5 @@
 {
-  "name": "threedigitaltwin",
+  "name": "@triedeti/threedigitaltwin",
   "version": "1.0.0",
   "description": "Virtual Digital Twin Engine",
   "main": "dist/threedigitaltwin.js",
@@ -20,8 +20,18 @@
     "three": "^0.114.0",
     "uglify-es": "^3.3.9"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
   "author": "TriedeTI",
   "license": "MIT",
-  "readmeFilename": "README.md",
-  "devDependencies": {}
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/triedeti/ThreeDigitalTwin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/triedeti/ThreeDigitalTwin/issues"
+  },
+  "homepage": "https://github.com/triedeti/ThreeDigitalTwin#readme"
 }
