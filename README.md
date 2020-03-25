@@ -1,4 +1,4 @@
-![ThreeDigitalTwin](https://triedeti.github.io/ThreeDigitalTwin/img/digitaltwin.gif?v=27032020)
+![](https://github.com/triedeti/ThreeDigitalTwin/blob/master/docs/img/digitaltwin.gif?raw=true)
 
 ## Welcome to Three Digital Twin
 
