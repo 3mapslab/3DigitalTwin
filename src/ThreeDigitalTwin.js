@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
-import ThreeDigitalObjects from "@/ThreeDigitalObjects";
+import { ThreeDigitalObjects } from "ThreeDigitalTwin";
 import axios from 'axios';
 import proj4 from 'proj4';
-var mergeJSON = require("merge-json");
+import mergeJSON from "merge-json";
 
 const WORLD_WIDTH = 20026376.39 * 2;
 const WORLD_HEIGHT = 20048966.10 * 2;
@@ -54,7 +54,7 @@ class ThreeDigitalTwin {
         this._initRenderer();
         this._initCamera();
         this._initEnvironment();
-        if (this.options.helpers) this._initHelpers();
+        //if (this.options.helpers) this._initHelpers();
         this._initControls();
         window.addEventListener('resize', this._onWindowResize.bind(this), false);
     }
@@ -102,7 +102,7 @@ class ThreeDigitalTwin {
 
         this._initLights();
         this._initSkyBox();
-        this._initOcean();
+        //this._initOcean();
     }
 
     _initOcean() {
@@ -160,10 +160,27 @@ class ThreeDigitalTwin {
         uniforms["sunPosition"].value.copy(this.sunSphere.position);
     }
 
+
     _initLights() {
         //Ambient light
         let _ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
         this.scene.add(_ambientLight);
+
+        let _skyboxLight = new THREE.DirectionalLight(0xffffff, 1);
+        _skyboxLight.castShadow = true;
+
+
+        var d = 10000;
+        _skyboxLight.shadow.camera.left = -d;
+        _skyboxLight.shadow.camera.right = d;
+        _skyboxLight.shadow.camera.top = d;
+        _skyboxLight.shadow.camera.bottom = -d;
+
+        this.scene.add(_skyboxLight);
+
+        var spotLightHelper = new THREE.SpotLightHelper(_skyboxLight);
+        this.scene.add(spotLightHelper);
+
     }
 
     _initHelpers() {

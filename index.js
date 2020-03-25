@@ -1,2 +1,2 @@
-const ThreeDigitalTwin = require('./src/ThreeDigitalTwin');
-module.exports = exports = ThreeDigitalTwin;
+export { default as ThreeDigitalTwin } from "./src/ThreeDigitalTwin";
+export { default as ThreeDigitalObjects } from "./src/ThreeDigitalObjects";

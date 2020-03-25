@@ -25,7 +25,9 @@
   },
   "author": "TriedeTI",
   "license": "MIT",
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^6.8.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/triedeti/ThreeDigitalTwin.git"
