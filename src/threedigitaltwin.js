@@ -1,13 +1,13 @@
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
-import { ThreeDigitalObjects } from "ThreeDigitalTwin";
-import axios from 'axios';
+import ThreeDigitalObjects from "./threedigitalobjects.js";
 import proj4 from 'proj4';
 import mergeJSON from "merge-json";
 
 const WORLD_WIDTH = 20026376.39 * 2;
 const WORLD_HEIGHT = 20048966.10 * 2;
+
 
 const defaults = {
     helpers: true,
@@ -19,17 +19,23 @@ const defaults = {
         zoom: 1000
     },
     camera: {
-        fov: 60,
-        near: 0.00000001,
-        far: 1000000000
+        fov: 75,
+        near: 0.0000001,
+        far: 100000
+
     }
 }
 
 class ThreeDigitalTwin {
 
-    constructor(mapid, options) {
+    constructor(inputElement, canvas, options) {
 
-        this.mapid = mapid;
+        this.inputElement = inputElement;
+        this.canvas = canvas;
+        this.width = inputElement.clientWidth;
+        this.height = inputElement.clientHeight;
+        this.aspect = inputElement.clientWidth / inputElement.clientHeight;
+
         this.options = mergeJSON.merge(defaults, options);
 
         this.camera = null;
@@ -39,9 +45,7 @@ class ThreeDigitalTwin {
         this.container = null
 
         this._init();
-        this._animate();
-
-        console.log(proj4('EPSG:3785'));
+        this._render();
     }
 
     _convertCoordinatesToWorld(lng, lat) {
@@ -54,40 +58,38 @@ class ThreeDigitalTwin {
         this._initRenderer();
         this._initCamera();
         this._initEnvironment();
-        //if (this.options.helpers) this._initHelpers();
+        if (this.options.helpers) this._initHelpers();
         this._initControls();
-        window.addEventListener('resize', this._onWindowResize.bind(this), false);
     }
 
     _initScene() {
 
         this.scene = new THREE.Scene();
-        //this.scene.fog = new THREE.FogExp2(0xcccccc, 0.01);
-        //this.scene.background = new THREE.Color(0xff0000);
+        //this.scene.background = new THREE.Color(0xf0f0f0);
     }
 
     _initRenderer() {
-        this.container = document.getElementById(this.mapid);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.container.appendChild(this.renderer.domElement);
+        this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, canvas: this.canvas });
+        this.renderer.setPixelRatio(1);
+        this.renderer.setSize(this.width, this.height, false);
+        this.renderer.shadowMap.enabled = true;
     }
 
     _initCamera() {
 
-        this.camera = new THREE.PerspectiveCamera(this.options.camera.fov, window.innerWidth / window.innerHeight, this.options.camera.near, this.options.camera.far);
+        this.camera = new THREE.PerspectiveCamera(this.options.camera.fov, this.aspect, this.options.camera.near, this.options.camera.far);
+
     }
 
     _initControls() {
 
-        this.controls = new MapControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.screenSpacePanning = true;
-        this.controls.zoomSpeed = 10.0;
-        this.controls.maxPolarAngle = Math.PI / 2;
+        this.controls = new MapControls(this.camera, this.inputElement);
+        this.controls.enableDamping = false;
+        this.controls.screenSpacePanning = false;
+        this.controls.zoomSpeed = 10;
+        this.controls.maxPolarAngle = (Math.PI / 2) - 0.1;
         this.controls.maxDistance = WORLD_HEIGHT;
-        window.controls = this.controls;
+        this.controls.minDistance = 10;
 
         /** We place x and z axis on earth, latitude will cut across -z axis and longitude will cut across x axis */
 
@@ -95,19 +97,21 @@ class ThreeDigitalTwin {
         this.controls.target = new THREE.Vector3(center[0], 0, center[1]);
         this.camera.position.set(center[0], this.options.world.zoom, center[1]);
         this.camera.lookAt(this.controls.target);
+
         this.controls.update();
+        //this.controls.addEventListener('change', this._render.bind(this));
     }
 
     _initEnvironment() {
 
-        this._initLights();
         this._initSkyBox();
-        //this._initOcean();
+        this._initOcean();
     }
 
     _initOcean() {
         var geometry = new THREE.PlaneBufferGeometry(WORLD_WIDTH, WORLD_HEIGHT, 32);
         var material = new THREE.MeshBasicMaterial({ color: 0x4977af });
+
         var ocean = new THREE.Mesh(geometry, material);
         ocean.rotateX(- Math.PI / 2);
         this.scene.add(ocean);
@@ -121,11 +125,10 @@ class ThreeDigitalTwin {
 
         // Add Sun Helper
         this.sunSphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(20000, 16, 8),
+            new THREE.SphereBufferGeometry(200000, 16, 8),
             new THREE.MeshBasicMaterial({ color: 0xffffff })
         );
 
-        this.sunSphere.visible = false;
         this.scene.add(this.sunSphere);
 
         var effectController = {
@@ -134,12 +137,15 @@ class ThreeDigitalTwin {
             mieCoefficient: 0.005,
             mieDirectionalG: 0.8,
             luminance: 1,
-            inclination: 0.49, // elevation / inclination
+            // 0.48 is a cracking dusk / sunset
+            // 0.4 is a beautiful early-morning / late-afternoon
+            // 0.2 is a nice day time
+            inclination: 0.48, // elevation / inclination
             azimuth: 0.25, // Facing front,
             sun: true
         };
 
-        var distance = 40;
+        var distance = WORLD_HEIGHT / 2;
 
         var uniforms = this.sky.material.uniforms;
         uniforms["turbidity"].value = effectController.turbidity;
@@ -158,109 +164,70 @@ class ThreeDigitalTwin {
         this.sunSphere.visible = effectController.sun;
 
         uniforms["sunPosition"].value.copy(this.sunSphere.position);
+
+        this._initLights();
     }
 
 
     _initLights() {
+
         //Ambient light
-        let _ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-        this.scene.add(_ambientLight);
+        this._ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        this.scene.add(this._ambientLight);
 
-        let _skyboxLight = new THREE.DirectionalLight(0xffffff, 1);
-        _skyboxLight.castShadow = true;
-
-
-        var d = 10000;
-        _skyboxLight.shadow.camera.left = -d;
-        _skyboxLight.shadow.camera.right = d;
-        _skyboxLight.shadow.camera.top = d;
-        _skyboxLight.shadow.camera.bottom = -d;
-
-        this.scene.add(_skyboxLight);
-
-        var spotLightHelper = new THREE.SpotLightHelper(_skyboxLight);
-        this.scene.add(spotLightHelper);
-
+        //Spot light
+        this._skyboxLight = new THREE.PointLight(0xfffffe, 0.5);
+        this._skyboxLight.color.setHSL(0.1, 1, 0.95);
+        this._skyboxLight.position.copy(this.sunSphere.position);
+        this.scene.add(this._skyboxLight);
     }
 
     _initHelpers() {
 
         // Axis Helper
-        var axesHelper = new THREE.AxesHelper(WORLD_HEIGHT);
+        var axesHelper = new THREE.AxesHelper(WORLD_WIDTH);
         this.scene.add(axesHelper);
     }
 
-    _animate() {
-        requestAnimationFrame(this._animate.bind(this));
-
-        if (this.controls) {
-            this.controls.update();
-            this.camera.lookAt(this.controls.target);
+    _resizeRendererToDisplaySize(renderer) {
+        const canvas = this.inputElement;
+        const width = canvas.clientWidth | 0;
+        const height = canvas.clientHeight | 0;
+        const needResize = canvas.width !== width || canvas.height !== height;
+        if (needResize) {
+            renderer.setSize(width, height, false);
         }
-
-        this._render();
+        return needResize;
     }
 
     _render() {
 
+        /*
+        if (this.controls) {
+            this.controls.update();
+            this.camera.lookAt(this.controls.target);
+        }*/
+
+        if (this._resizeRendererToDisplaySize(this.renderer)) {
+            this.camera.aspect = this.inputElement.clientWidth / this.inputElement.clientHeight;
+            this.camera.updateProjectionMatrix();
+        }
+
         this.renderer.render(this.scene, this.camera);
 
+        requestAnimationFrame(this._render.bind(this));
     }
 
-    _onWindowResize() {
+    loadDataset(e) {
 
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-    }
-
-    getThreeOptions(options) {
-        var prop = {};
-
-
-        prop.material = {};
-        prop.material.color = options.color;
-        prop.material.shadowSide = THREE.FrontSide;
-        prop.material.side = THREE.FrontSide;
-        //prop.material.wireframe = true;
-        //prop.material.wireframeLinewidth = 1;
-
-        prop.extrudeSettings = {
-            steps: 2,
-            depth: 16,
-            bevelEnabled: false
-        };
-
-        return prop;
-    }
-
-    async loadDataset(path, options) {
-
-        return new Promise((resolve, reject) => {
-            axios.get(path).then(res => {
-                let digitalObjects = new ThreeDigitalObjects(res.data, this.getThreeOptions(options));
-                resolve(digitalObjects.addTo(this.scene));
-            }).catch(function (error) {
-                reject(error);
-            });
+        var that = this;
+        return new Promise((resolve) => {
+            that.digitalObjects = new ThreeDigitalObjects(e.data, e.options);
+            resolve(that.digitalObjects.addTo(this.scene));
         });
-    }
 
-    async loadDatasets(path) {
-        return new Promise((resolve, reject) => {
-            axios.get(path)
-                .then(async (config) => {
-                    config.data.datasets.forEach(async (d) => {
-                        await this.loadDataset(d.path, d.options);
-                    });
-                    resolve();
-                }).catch(function (err) {
-                    reject(err);
-                })
-        });
     }
-
 }
 
+ThreeDigitalTwin.EventDispatcher = THREE.EventDispatcher;
 export default ThreeDigitalTwin;
