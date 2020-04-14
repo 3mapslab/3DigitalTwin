@@ -14,7 +14,6 @@
     "3d"
   ],
   "dependencies": {
-    "axios": "^0.19.2",
     "merge-json": "0.1.0-b.3",
     "proj4": "^2.6.0",
     "three": "^0.114.0",
@@ -26,7 +25,8 @@
   "author": "TriedeTI",
   "license": "MIT",
   "devDependencies": {
-    "eslint": "^6.8.0"
+    "webpack": "^4.42.1",
+    "worker-loader": "^2.0.0"
   },
   "repository": {
     "type": "git",
