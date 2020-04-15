@@ -1,7 +1,6 @@
 {
   "name": "@triedeti/threedigitaltwin",
-  "version": "1.0.0",
-  "description": "Virtual Digital Twin Engine",
+  "version": "1.0.1",
   "main": "dist/threedigitaltwin.js",
   "scripts": {
     "build": "npm install && npm audit fix --force && uglifyjs src/*.js -o dist/threedigitaltwin.min.js -c -m",
