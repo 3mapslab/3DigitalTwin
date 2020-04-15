@@ -1,14 +1,24 @@
-![](https://github.com/triedeti/ThreeDigitalTwin/blob/master/docs/img/digitaltwin.gif?raw=true)
+# Three Digital Twin
 
-## Welcome to Three Digital Twin
+This is a ThreeDigitalTwin. A starter kit for our IoT Project based on 3D WebGL.
 
-The Digital Twin Starter Kit for IoT Project
+As you can see here, to improve performance when creating complex scenes with ThreeDigitalTwin, our library move the render away from the main thread into a Web worker with OffscreenCanvas.
 
+![](https://github.com/triedeti/ThreeDigitalTwin/blob/master/docs/img/digitaltwin_main.gif?raw=true)
 
-### Examples
+## Disclaimer
+
+It was our sole intention to contribute to the community what we had to do to get this to work on our own projects ❤️
+
+## Quickstart
 
 Coming soon 
 
+## Examples
+
+![](https://github.com/triedeti/ThreeDigitalTwin/blob/master/docs/img/digitaltwin.gif?raw=true)
+
+Coming soon 
 
 ## Contributing
 
