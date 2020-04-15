@@ -3,8 +3,7 @@
   "version": "1.0.1",
   "main": "dist/threedigitaltwin.js",
   "scripts": {
-    "build": "npm install && npm audit fix --force && uglifyjs src/*.js -o dist/threedigitaltwin.min.js -c -m",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm install"
   },
   "keywords": [
     "digitaltwin",
@@ -14,9 +13,8 @@
   ],
   "dependencies": {
     "merge-json": "0.1.0-b.3",
-    "proj4": "^2.6.0",
-    "three": "^0.114.0",
-    "uglify-es": "^3.3.9"
+    "proj4": "^2.6.1",
+    "three": "^0.114.0"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/"
