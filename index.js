@@ -1,1 +1,3 @@
-export { default as ThreeDigitalTwin } from "./src/digitaltwin.proxy.js";
+import { default as ThreeDigitalTwin } from "./src/threedigitaltwin.js";
+
+export { ThreeDigitalTwin } 

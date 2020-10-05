@@ -1,233 +1,867 @@
-import * as THREE from "three";
-import { MapControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Sky } from "three/examples/jsm/objects/Sky.js";
-import ThreeDigitalObjects from "./threedigitalobjects.js";
+import * as THREE from 'three';
+import { extrudeGeoJSON } from 'geometry-extrude';
+import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
-import mergeJSON from "merge-json";
+import { Sky } from "three/examples/jsm/objects/Sky.js";
+import { Water } from "three/examples/jsm/objects/Water.js";
+import * as OIMO from "oimo";
+import CameraControls from 'camera-controls'
+import * as TWEEN from 'es6-tween';
+import { MeshLine, MeshLineMaterial } from 'three.meshline'
+//import * as turf from '@turf/turf'
 
-const WORLD_WIDTH = 20026376.39 * 2;
-const WORLD_HEIGHT = 20048966.10 * 2;
+CameraControls.install({ THREE: THREE });
 
+const near = 5;
+const far = 3500;
+//const fogColor = 'lightblue';
 
-const defaults = {
-    helpers: true,
-    world: {
-        center: {
-            latitude: 0,
-            longitude: 0
-        },
-        zoom: 1000
+//1 unit threejs == 1 meter
+const WORLD = {
+    width: 15000,
+    height: 15000,
+    zoom:
+    {
+        start: 250,
+        min: 10,
+        max: 500
     },
-    camera: {
-        fov: 75,
-        near: 0.0000001,
-        far: 100000
-
+    center: {
+        lng: -8.7016652234108349,
+        lat: 41.185523935676713
     }
+};
+
+const PHYSICWORLD =
+{
+    timestep: 1 / 60,
+    iterations: 8,
+    broadphase: 2, // 1 brute force, 2 sweep and prune, 3 volume tree
+    worldscale: 1, // scale full world 
+    random: false,  // randomize sample
+    info: true,   // calculate statistic or not
+    gravity: [0, -9.8, 0]
 }
 
-class ThreeDigitalTwin {
+export default class ThreeDigitalTwin {
 
-    constructor(inputElement, canvas, options) {
-
-        this.inputElement = inputElement;
-        this.canvas = canvas;
-        this.width = inputElement.clientWidth;
-        this.height = inputElement.clientHeight;
-        this.aspect = inputElement.clientWidth / inputElement.clientHeight;
-
-        this.options = mergeJSON.merge(defaults, options);
-
+    /**
+     * models and textures are both js Map() objects
+     * @param models - Map()
+     * @param textures - Map() - Each value in this Map, contains an  object with the following structure:
+     * 
+     * {
+     *  type: 'cube' //"cube" or "regular",
+     *  texture: //The actual texture structure (already existed)
+     * }
+     * 
+    */
+    constructor(models, textures) {
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.scope = null;
+        this.models = models;
+        this.textures = textures;
         this.camera = null;
         this.scene = null;
         this.renderer = null;
-        this.controls = null;
-        this.container = null
-
-        this._init();
-        this._render();
+        this.ground = null;
+        this.cameraControls = null;
+        this.physicWorld = null;
+        this.clock = new THREE.Clock();
+        this.centerWorldInMeters = this.convertCoordinatesToUnits(WORLD.center.lng, WORLD.center.lat);
+        this.modelsMesh = new Map();
+        this.materialsMesh = new Map();
+        this.cubeMaterial = new Map();
+        this.layers = new Map();
+        this.INTERSECTED = null;
+        this.events = {};
     }
 
-    _convertCoordinatesToWorld(lng, lat) {
-        return proj4('EPSG:3785', [lng, -lat]);
-    }
-
-    _init() {
-
-        this._initScene();
-        this._initRenderer();
-        this._initCamera();
-        this._initEnvironment();
-        if (this.options.helpers) this._initHelpers();
-        this._initControls();
-    }
-
-    _initScene() {
+    init(canvas) {
 
         this.scene = new THREE.Scene();
-        //this.scene.background = new THREE.Color(0xf0f0f0);
-    }
+        //this.scene.background = new THREE.Color(0xcce0ff);
+        //this.scene.fog = new THREE.Fog(0xcce0ff, far / 4, far / 2);
+        this.camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, near, far);
+        this.camera.position.set(0, WORLD.zoom.start, 0);
 
-    _initRenderer() {
-        this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, canvas: this.canvas });
-        this.renderer.setPixelRatio(1);
-        this.renderer.setSize(this.width, this.height, false);
-        this.renderer.shadowMap.enabled = true;
-    }
+        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", physicallyCorrectLights: true });
+        this.renderer.shadowMap.enabled = false;
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
 
-    _initCamera() {
+        this.cameraControls = new CameraControls(this.camera, this.renderer.domElement);
+        //Locks Zoom and rotation 
+        this.cameraControls.verticalDragToForward = true;
+        this.cameraControls.dollyToCursor = false;
+        this.cameraControls.maxPolarAngle = Math.PI / 2;
+        this.cameraControls.maxDistance = 800; //1KM
 
-        this.camera = new THREE.PerspectiveCamera(this.options.camera.fov, this.aspect, this.options.camera.near, this.options.camera.far);
+        const bb = new THREE.Box3(
+            new THREE.Vector3(-WORLD.width / 2, 10, -WORLD.height / 2),
+            new THREE.Vector3(WORLD.width / 2, this.cameraControls.maxDistance, WORLD.height / 2)
+        );
+        this.cameraControls.setBoundary(bb);
+        this.cameraControls.saveState();
 
-    }
+        //var axesHelper = new THREE.AxesHelper(WORLD.width / 2);
+        //this.scene.add(axesHelper);
 
-    _initControls() {
+        window.addEventListener('resize', this.onWindowResize.bind(this), false);
+        canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
 
-        this.controls = new MapControls(this.camera, this.inputElement);
-        this.controls.enableDamping = false;
-        this.controls.screenSpacePanning = false;
-        this.controls.zoomSpeed = 10;
-        this.controls.maxPolarAngle = (Math.PI / 2) - 0.1;
-        this.controls.maxDistance = WORLD_HEIGHT;
-        this.controls.minDistance = 10;
-
-        /** We place x and z axis on earth, latitude will cut across -z axis and longitude will cut across x axis */
-
-        let center = this._convertCoordinatesToWorld(this.options.world.center.longitude, this.options.world.center.latitude);
-        this.controls.target = new THREE.Vector3(center[0], 0, center[1]);
-        this.camera.position.set(center[0], this.options.world.zoom, center[1]);
-        this.camera.lookAt(this.controls.target);
-
-        this.controls.update();
-        //this.controls.addEventListener('change', this._render.bind(this));
-    }
-
-    _initEnvironment() {
-
-        this._initSkyBox();
+        this._initAllTextures();
+        this._initAllModels();
         this._initOcean();
+        this._initSkyBox();
+        this._initPhysicWorld();
+
+        this.animate();
     }
 
-    _initOcean() {
-        var geometry = new THREE.PlaneBufferGeometry(WORLD_WIDTH, WORLD_HEIGHT, 32);
-        var material = new THREE.MeshBasicMaterial({ color: 0x4977af });
+    _initAllModels() {
+        for (let [key, value] of this.models) {
+            this._initModel(key, value);
+        }
+    }
 
-        var ocean = new THREE.Mesh(geometry, material);
-        ocean.rotateX(- Math.PI / 2);
-        this.scene.add(ocean);
+    /**
+     * Textures can be "regular", and are loaded with the _initMaterial function, but can also be 
+     * "cube" textures and wrap up a 6 side geometry with the _initCubeMaterial function 
+     *
+     * **/
+    _initAllTextures() {
+        for (let [key, value] of this.textures) {
+            if (value.type == "regular") {
+                this._initMaterial(key, value.texture);
+            } else if (value.type == "cube") {
+                this._initCubeMaterial(key, value.texture);
+            }
+        }
+    }
+
+    _initLights() {
+
+        //Ambient light
+        this._ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+        this.scene.add(this._ambientLight);
+
+        //Spot light
+        this._skyboxLight = new THREE.PointLight(0xfffffe, 0.3, 0, 0);
+        this._skyboxLight.color.setHSL(0.1, 1, 0.95);
+        this._skyboxLight.position.copy(this.sunSphere.position);
+        this.scene.add(this._skyboxLight);
+
+        //Hemisphere Light
+        var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.4);
+
+
+
+        this.scene.add(light);
+    }
+
+    // JSON to DATA URI -> https://dopiaza.org/tools/datauri/index.php
+    _initModel(name, dataURI) {
+        // instantiate a loader
+        var loader = new THREE.BufferGeometryLoader();
+
+        // load a resource (data.uri)
+        loader.load(dataURI,
+
+            // onLoad callback
+            (geometry) => {
+                this.modelsMesh.set(name, geometry);
+            },
+
+            // onProgress callback
+            function (xhr) {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+
+            // onError callback
+            function (err) {
+                console.log('An error happened', err);
+            }
+        );
+    }
+
+    _initMaterial(name, dataURI) {
+        this._loadTexture(dataURI).then(
+            texture => {
+                var material = new THREE.MeshLambertMaterial({ map: texture });
+                this.materialsMesh.set(name, material);
+            },
+            error => {
+                console.log(error);
+            }
+        );
+    }
+
+    /**
+     * Loads the textures of all existing conveyors, saving them in a map (cubeMaterial),
+     * key: Name | value: Array of materials
+     * 
+     * @param {Name of the conveyor texture} name 
+     * @param {Array with textures of a specific conveyor} facesOfTexture 
+     */
+    _initCubeMaterial(name, facesOfTexture) {
+        for (let face in facesOfTexture) {
+            this._loadCubeTexture(facesOfTexture[face]).then(
+                texture => {
+                    var material = new THREE.MeshLambertMaterial({ map: texture });
+
+                    if (this.cubeMaterial.get(name)) {
+                        var materials = this.cubeMaterial.get(name);
+                        materials[face] = material;
+                    } else {
+                        var textureFaces = {};
+                        textureFaces[face] = material;
+                        this.cubeMaterial.set(name, textureFaces);
+                    }
+                },
+                error => {
+                    console.log(error);
+                }
+            );
+        }
+
+    }
+
+    animate(time) {
+        const delta = this.clock.getDelta();
+        this.cameraControls.update(delta);
+
+        requestAnimationFrame(this.animate.bind(this));
+        this.renderer.render(this.scene, this.camera);
+
+        if (this.ocean) {
+            this.ocean.material.uniforms['time'].value += 1.0 / 120.0;
+        }
+
+        TWEEN.update(time);
+
+        this._updatePhysicWorld();
+
+        this.renderer.renderLists.dispose();
+    }
+
+    onWindowResize() {
+
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    }
+
+    prepareLayer(layerCode, geojson, properties, outline) {
+        if (geojson == null || geojson.features == null) return;
+        var prop = properties;
+
+        geojson.features.forEach(feature => {
+            var geojson_feature = {
+                "type": "FeatureCollection",
+                "features": [feature],
+            };
+            if (feature.properties.asset_type_configuration) {
+                prop.depth = feature.properties.asset_type_configuration.options_extrudeSettings_depth;
+                prop.altitude = feature.properties.asset_type_configuration.options_altitude;
+                prop.material.color = feature.properties.asset_type_configuration.options_material_color.substring(0, 7);
+                prop.material.opacity = feature.properties.asset_type_configuration.options_material_opacity;
+                this.loadLayer(layerCode, geojson_feature, prop, outline);
+            } else {
+                this.loadLayer(layerCode, geojson_feature, properties, outline);
+            }
+        });
+    }
+
+    loadLayer(layerCode, geojson, properties, outline) {
+        if (geojson == null || geojson.features == null) return;
+        var depth, altitude, color, opacity;
+
+        if (properties) {
+            depth = properties && properties.depth != null ? properties.depth : 2;
+            altitude = properties && properties.altitude != null ? properties.altitude : 0;
+            color = properties && properties.material && properties.material.color ? properties.material.color : 'white';
+            opacity = properties && properties.material && properties.material.opacity != null ? properties.material.opacity : 1;
+            //   var depthWrite = properties && properties.material && properties.material.depthWrite ? properties.material.depthWrite : true;
+            //      var blending = properties && properties.material && properties.material.blending ? THREE.AdditiveBlending : THREE.NormalBlending;
+            //      var polygonOffset = properties && properties.material && properties.material.polygonOffset ? properties.material.polygonOffset : false;
+            //      var polygonOffsetFactor = properties && properties.material && properties.material.polygonOffsetFactor != null ? properties.material.polygonOffsetFactor : 0;
+            //      var polygonOffsetUnits = properties && properties.material && properties.material.polygonOffsetUnits != null ? properties.material.polygonOffsetUnits : 0;
+            //      var transparent = true;
+            //   var depthT = properties && properties.material && properties.material.depthTest ? properties.material.depthTest : true;
+        }
+
+
+        var material_options = {
+            // depth: THREE.GreaterDepth,
+            //       blending: blending,
+            color: new THREE.Color(color),
+            opacity: opacity,
+            //depthTest: true,
+            //  depthWrite: false,
+            //         polygonOffset: polygonOffset,
+            //       polygonOffsetFactor: polygonOffsetFactor,
+            //       polygonOffsetUnits: polygonOffsetUnits,
+            //         transparent: transparent,
+        };
+
+        var reproject_geojson = this.convertGeoJsonToWorldUnits(geojson);
+
+        const { polygon } = extrudeGeoJSON(reproject_geojson, {
+            depth: depth,
+            simplify: 0,
+            excludeBottom: true,
+            translate: [-this.centerWorldInMeters[0], -this.centerWorldInMeters[1]]
+        });
+        const { position, normal, indices } = polygon;
+
+        var mesh = null;
+        var geometry = null;
+        var material = null;
+
+        if (outline) {
+
+            geometry = new THREE.Geometry();
+            for (let i = 0; i < position.length; i += 3) {
+                geometry.vertices.push(new THREE.Vector3(position[i], position[i + 1], altitude + depth));
+            }
+            var line = new MeshLine();
+            line.setGeometry(geometry, function (p) { return p / 2; });
+
+            material = new MeshLineMaterial(material_options);
+            mesh = new THREE.Mesh(line.geometry, material);
+
+        } else {
+
+            geometry = new THREE.BoxBufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3));
+            geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
+            geometry.translate(0, 0, altitude);
+
+            material = new THREE.MeshPhongMaterial(material_options);
+            mesh = new THREE.Mesh(geometry, material);
+
+        }
+        //mesh.renderOrder = properties.material.polygonOffsetUnits * -1;
+        mesh.matrixAutoUpdate = false;
+        mesh.receiveShadow = false;
+        mesh.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
+        mesh.updateMatrix();
+
+        this.scene.add(mesh);
+
+        if (layerCode) {
+            var value = [];
+            if (this.layers.get(layerCode)) {
+                value = this.layers.get(layerCode);
+            }
+            value.push(mesh);
+            this.layers.set(layerCode, value);
+        }
+
+
+        geometry.dispose();
+        material.dispose();
+
+        return mesh;
+
+    }
+
+    removeLayer(layerCode) {
+        if (layerCode) {
+            var meshes = this.layers.get(layerCode);
+
+            meshes.forEach(mesh => {
+                if (mesh && mesh.geometry) {
+                    mesh.geometry.dispose();
+                    this.scene.remove(mesh);
+                }
+            });
+            this.layers.delete(layerCode);
+        }
+    }
+
+    /**
+     * Creates a geometry if the object doesn't have assetType, or uses a model already loaded in a map (modelMesh).
+     * Creates a material if the object doesn't have type, or uses a material alreadt loaded in a map (cubeMaterial or materialMesh).
+     * 
+     * @param {Geometry of an object} object 
+     * @param {Boolean that represents if the object has physcis} hasPhysics 
+     */
+    loadObject(object, hasPhysics, isVisible) {
+        //First, load up the object's geometry
+        var geometry;
+        if (this.modelsMesh.get(object.assetType)) {
+            geometry = this.modelsMesh.get(object.assetType).clone();
+        } else {
+            /**
+             * This is being used ONLY when models are not found in the "modelsMesh" map.
+             * It creates a performant BoxBufferGeometry box with the specified default dimensions (5,5,5) or some send by param
+            */
+            let boxWidth = object.boxWidth ? object.boxWidth : 5;
+            let boxHeight = object.boxHeight ? object.boxHeight : 5;
+            let boxDepth = object.boxDepth ? object.boxDepth : 5;
+            geometry = new THREE.BoxBufferGeometry(boxWidth, boxHeight, boxDepth);
+        }
+
+        //...then, load up its material:
+        var material;
+        if (object.textureType == 'regular') {
+            material = this.materialsMesh.get(object.type).clone();
+        } else if (object.textureType == 'cube') {
+            let materialColl = this.cubeMaterial.get(object.type);
+            //now, if this a 6-faced texture, clone all of its faces individually...
+            material = [
+                materialColl.face1.clone(),
+                materialColl.face2.clone(),
+                materialColl.face3.clone(),
+                materialColl.face4.clone(),
+                materialColl.face5.clone(),
+                materialColl.face6.clone()];
+        }
+        else {
+            material = new THREE.MeshLambertMaterial({ color: object.textureColor ? object.textureColor : 0xff0000, wireframe: false });
+        }
+
+        if (Array.isArray(material)) {
+            material.forEach(element => {
+                //  element.depthWrite = false;
+                element.polygonOffset = true; // fix overlapping problems
+                element.polygonOffsetFactor = -1; // fix overlapping problems
+                element.polygonOffsetUnits = -1000; // fix overlapping problems
+                //   element.DoubleSide = true;
+            });
+        } else {
+            //   material.depthWrite = false;
+            material.polygonOffset = true; // fix overlapping problems
+            material.polygonOffsetFactor = -1; // fix overlapping problems
+            material.polygonOffsetUnits = -900; // fix overlapping problems
+            // material.DoubleSide = true;
+        }
+
+
+        return this._loadMesh(object, geometry, material, hasPhysics, isVisible);
+    }
+
+    removeObject(mesh, hasPhysics) {
+
+        if (!mesh) return;
+
+        if (hasPhysics) {
+            //@TODO PERCORRER this.physicWorld.bodies e comparar mesh com a body.twinMesh
+        }
+        if (Array.isArray(mesh)) {
+            mesh.forEach(element => {
+                this.removeObjectByUUID(element.uuid);
+            });
+
+        } else if (mesh.mesh && Array.isArray(mesh.mesh)) {
+            mesh.mesh.forEach(element => {
+                this.removeObjectByUUID(element.uuid);
+            });
+        } else {
+            this.removeObjectByUUID(mesh.uuid);
+        }
+
+    }
+
+    removeObjectByUUID(uuid) {
+        const object = this.scene.getObjectByProperty('uuid', uuid);
+        if (object) {
+            object.geometry.dispose();
+            if (Array.isArray(object.material)) {
+                object.material.forEach(element => {
+                    element.dispose();
+                });
+            } else {
+                object.material.dispose();
+            }
+
+            this.scene.remove(object);
+        }
+    }
+
+    setVisible(mesh, state) {
+        mesh.visible = state;
+        mesh.updateMatrix();
+    }
+
+    _loadMesh(object, geometry, material, hasPhysics, isVisible) {
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.matrixAutoUpdate = false;
+        mesh.receiveShadow = false;
+
+        var coordinates = this.convertCoordinatesToUnits(object.geometry.coordinates[0], object.geometry.coordinates[1]);
+        mesh.geometry.rotateY((object.rotation || 0) * (Math.PI / 180));
+        var size = new THREE.Vector3();
+        new THREE.Box3().setFromObject(mesh).getSize(size);
+        var height = object.height ? object.height : 1;
+        mesh.position.set(coordinates[0] - this.centerWorldInMeters[0], height, -(coordinates[1] - this.centerWorldInMeters[1]));
+
+        if (hasPhysics) {
+            let position = mesh.position;
+            let body = this.physicWorld.add({
+                type: 'box', // type of shape : sphere, box, cylinder 
+                size: [size.x, size.y, size.z], // size of shape
+                pos: [position.x, position.y, position.z], // start position in degree
+                rot: [0, 0, 0], // start rotation in degree
+                move: true, // dynamic or statique
+                density: 1,
+                friction: 0.2,
+                restitution: 0.2,
+                belongsTo: 1, // The bits of the collision groups to which the shape belongs.
+                collidesWith: 0xffffffff // The bits of the collision groups with which the shape collides.
+            });
+            body.twinMesh = mesh;
+            this.physicWorld.bodies.push(body);
+        }
+
+        mesh.updateMatrix();
+        mesh.visible = isVisible;
+        this.scene.add(mesh);
+
+        geometry.dispose();
+
+        return mesh;
+    }
+
+    convertGeoJsonToWorldUnits(geojson) {
+        return reproject(geojson);
+    }
+
+    convertCoordinatesToUnits(lng, lat) {
+        return proj4('EPSG:3857', [lng, lat]);
     }
 
     _initSkyBox() {
         // Add Sky
         this.sky = new Sky();
-        this.sky.scale.setScalar(WORLD_HEIGHT);
+        this.sky.scale.setScalar(WORLD.width / 2);
         this.scene.add(this.sky);
 
         // Add Sun Helper
         this.sunSphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(200000, 16, 8),
-            new THREE.MeshBasicMaterial({ color: 0xffffff })
+            new THREE.SphereBufferGeometry(1, 16, 8),
+            new THREE.MeshBasicMaterial({
+                color: 0xffffff
+            })
         );
 
         this.scene.add(this.sunSphere);
 
-        var effectController = {
-            turbidity: 10,
-            rayleigh: 2,
-            mieCoefficient: 0.005,
-            mieDirectionalG: 0.8,
-            luminance: 1,
-            // 0.48 is a cracking dusk / sunset
-            // 0.4 is a beautiful early-morning / late-afternoon
-            // 0.2 is a nice day time
-            inclination: 0.48, // elevation / inclination
+        var pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+
+        this.effectController = {
+            turbidity: 6,
+            rayleigh: 0.25,
+            mieCoefficient: 0.033,
+            mieDirectionalG: 0.9,
+            inclination: 0, // elevation / inclination
             azimuth: 0.25, // Facing front,
-            sun: true
+            exposure: 1
         };
 
-        var distance = WORLD_HEIGHT / 2;
+        var distance = WORLD.height;
 
         var uniforms = this.sky.material.uniforms;
-        uniforms["turbidity"].value = effectController.turbidity;
-        uniforms["rayleigh"].value = effectController.rayleigh;
-        uniforms["mieCoefficient"].value = effectController.mieCoefficient;
-        uniforms["mieDirectionalG"].value = effectController.mieDirectionalG;
-        uniforms["luminance"].value = effectController.luminance;
+        uniforms["turbidity"].value = this.effectController.turbidity;
+        uniforms["rayleigh"].value = this.effectController.rayleigh;
+        uniforms["mieCoefficient"].value = this.effectController.mieCoefficient;
+        uniforms["mieDirectionalG"].value = this.effectController.mieDirectionalG;
 
-        var theta = Math.PI * (effectController.inclination - 0.5);
-        var phi = 2 * Math.PI * (effectController.azimuth - 0.5);
+        var theta = Math.PI * (this.effectController.inclination - 0.5);
+        var phi = 2 * Math.PI * (this.effectController.azimuth - 0.5);
 
         this.sunSphere.position.z = distance * Math.cos(phi);
         this.sunSphere.position.y = distance * Math.sin(phi) * Math.sin(theta);
         this.sunSphere.position.x = distance * Math.sin(phi) * Math.cos(theta);
-
-        this.sunSphere.visible = effectController.sun;
+        this.sunSphere.visible = this.effectController.sun;
 
         uniforms["sunPosition"].value.copy(this.sunSphere.position);
+        if (this.ocean) {
+            this.ocean.material.uniforms['sunDirection'].value.copy(this.sunSphere.position).normalize();
+        }
+
+        //this.renderer.outputEncoding = THREE.sRGBEncoding;
+        //this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 0.5;
+        this.scene.environment = pmremGenerator.fromScene(this.sky).texture;
 
         this._initLights();
     }
 
+    _initOcean() {
+        var geometry = new THREE.PlaneBufferGeometry(WORLD.height, WORLD.height);
+        this._loadTexture('https://raw.githubusercontent.com/jbouny/ocean/master/assets/img/waternormals.jpg').then((texture) => {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 
-    _initLights() {
+            this.ocean = new Water(
+                geometry, {
+                textureWidth: 512,
+                textureHeight: 512,
+                waterNormals: texture,
+                alpha: 1.0,
+                sunDirection: this._skyboxLight.position.clone().normalize(),
+                sunColor: 0xffffff,
+                waterColor: 0x001e0f,
+                distortionScale: 3.7,
+                fog: this.scene.fog !== undefined
+            }
+            );
+            this.ocean.material.depthWrite = false;
+            this.ocean.material.polygonOffset = true;
+            this.ocean.material.polygonOffsetFactor = 1;
+            this.ocean.material.polygonOffsetUnits = 16;
+            this.ocean.position.set(0, 0, 0);
+            this.ocean.rotateX(-Math.PI / 2);
 
-        //Ambient light
-        this._ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-        this.scene.add(this._ambientLight);
-
-        //Spot light
-        this._skyboxLight = new THREE.PointLight(0xfffffe, 0.5);
-        this._skyboxLight.color.setHSL(0.1, 1, 0.95);
-        this._skyboxLight.position.copy(this.sunSphere.position);
-        this.scene.add(this._skyboxLight);
-    }
-
-    _initHelpers() {
-
-        // Axis Helper
-        var axesHelper = new THREE.AxesHelper(WORLD_WIDTH);
-        this.scene.add(axesHelper);
-    }
-
-    _resizeRendererToDisplaySize(renderer) {
-        const canvas = this.inputElement;
-        const width = canvas.clientWidth | 0;
-        const height = canvas.clientHeight | 0;
-        const needResize = canvas.width !== width || canvas.height !== height;
-        if (needResize) {
-            renderer.setSize(width, height, false);
-        }
-        return needResize;
-    }
-
-    _render() {
-
-        /*
-        if (this.controls) {
-            this.controls.update();
-            this.camera.lookAt(this.controls.target);
-        }*/
-
-        if (this._resizeRendererToDisplaySize(this.renderer)) {
-            this.camera.aspect = this.inputElement.clientWidth / this.inputElement.clientHeight;
-            this.camera.updateProjectionMatrix();
-        }
-
-        this.renderer.render(this.scene, this.camera);
-
-        requestAnimationFrame(this._render.bind(this));
-    }
-
-    loadDataset(e) {
-
-        var that = this;
-        return new Promise((resolve) => {
-            that.digitalObjects = new ThreeDigitalObjects(e.data, e.options);
-            resolve(that.digitalObjects.addTo(this.scene));
         });
+    }
 
+    toggleOcean(state) {
+        if (state) {
+            this.scene.add(this.ocean);
+        } else {
+            this.scene.remove(this.ocean);
+        }
+
+        this.ocean.material.dispose();
+        this.ocean.geometry.dispose();
+    }
+
+    _initPhysicWorld() {
+
+        //init oimo world
+        this.physicWorld = new OIMO.World(PHYSICWORLD);
+
+        //init all bodies in oimo world
+        this.physicWorld.bodies = [];
+
+        //init all mesh in oimo world
+        this.physicWorld.meshes = [];
+
+        //init ground in oimo world
+        this.physicWorld.add({ size: [WORLD.width, 5, WORLD.height], pos: [0, 0, 0] }); // ground
+    }
+
+    _updatePhysicWorld() {
+        // Step the physics world
+        this.physicWorld.step();
+        if (this.physicWorld && this.physicWorld.bodies.length > 0) {
+            for (var i = 0; i !== this.physicWorld.bodies.length; i++) {
+                var body = this.physicWorld.bodies[i];
+                body.twinMesh.position.copy(body.getPosition());
+                body.twinMesh.quaternion.copy(body.getQuaternion());
+            }
+        }
+        localStorage.setItem('oimo-stats', this.physicWorld.getInfo());
+    }
+
+    _loadTexture(texturePath) {
+        return new Promise((resolve, reject) => {
+            new THREE.ImageBitmapLoader().load(
+                // resource URL
+                texturePath,
+                // onLoad callback
+                (imageBitmap) => {
+                    resolve(new THREE.CanvasTexture(imageBitmap));
+                },
+                // onProgress callback currently not supported
+                undefined,
+
+                // onError callback
+                (err) => {
+                    console.log('Error with texture', texturePath);
+                    console.log('An error happened', err);
+                    reject(err)
+                }
+            );
+        });
+    }
+
+    _loadCubeTexture(texturePath) {
+        return new Promise((resolve, reject) => {
+            new THREE.TextureLoader().load(
+                // resource URL
+                texturePath,
+                // onLoad callback
+                (texture) => {
+                    resolve(texture);
+                },
+                // onProgress callback currently not supported
+                undefined,
+
+                // onError callback
+                (err) => {
+                    console.log('Error with texture', texturePath);
+                    console.log('An error happened', err);
+                    reject(err)
+                }
+            );
+        });
+    }
+
+    focusOnObject(obj) {
+        this.cameraControls.rotateTo(0, 0, true);
+
+        if (Array.isArray(obj))
+            this.cameraControls.fitTo(obj[0], true);
+        else
+            this.cameraControls.fitTo(obj, true);
+
+
+    }
+
+    unFocusOnObject() {
+        /*
+        objects.forEach(object => {
+            object.mesh.material.forEach(material => {
+                material.opacity = 1;
+                material.transparent = false;
+            });
+        });*/
+    }
+
+    updateObjectPosition(object, animation) {
+
+        if (Array.isArray(object.mesh)) {
+            object.mesh.forEach(element => {
+                this.updateMeshPosition(element, object.geometry, animation)
+            });
+
+        } else {
+            this.updateMeshPosition(object.mesh, object.geometry, animation)
+        }
+
+    }
+
+    updateMeshPosition(mesh, geometry, animation) {
+
+        var coordinates = this.convertCoordinatesToUnits(geometry.coordinates[0], geometry.coordinates[1]);
+        var targetPosition = new THREE.Vector3(coordinates[0] - this.centerWorldInMeters[0], mesh.position.y, -(coordinates[1] - this.centerWorldInMeters[1]));
+
+        //if anime
+        if (animation) {
+
+            //Smooth Animation Object
+            new TWEEN.Tween(mesh.position).to(targetPosition, 5000)
+                .on('update', () => {
+                    mesh.updateMatrix();
+                }).start() // Start the tween immediately.
+
+        } else {
+            mesh.position.copy(targetPosition);
+
+        }
+
+        mesh.lookAt(targetPosition);
+        mesh.updateMatrix();
+
+        return mesh;
+    }
+
+    onDocumentMouseClick(event) {
+        event.preventDefault();
+        this.mouse.x = (event.offsetX / window.innerWidth) * 2 - 1;
+        this.mouse.y = - (event.offsetY / window.innerHeight) * 2 + 1;
+        // find intersections
+        var params = { Mesh: {}, Line: { threshold: 50 }, LOD: {}, Points: { threshold: 5 }, Sprite: {} };
+        this.raycaster.params = params;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        var intersects = this.raycaster.intersectObjects(this.scene.children);
+
+        if (intersects.length > 0) {
+            this.dispatch('intersectObject', intersects[0].object);
+
+        }
+    }
+
+
+    findObjectThroughUUID(object, objects, otherObjects, anotherObjects) {
+        var foundElement = false;
+        var foundObject = null;
+        if (object) {
+            objects.forEach(element => {
+                if (element && element.mesh) {
+                    element.mesh.forEach(objectMesh => {
+                        if (object.uuid == objectMesh.uuid) {
+                            foundElement = true;
+                            foundObject = { obj: element, type: "first" };//VEHICLES
+                        }
+                    });
+                }
+            });
+
+            if (!foundElement) {
+                otherObjects.forEach(function (value, key) {
+                    if (value && value.uuid && value.uuid == object.uuid && object.visible == true) {
+                        var obj = anotherObjects.get(key);
+                        foundObject = { obj: obj, type: "second" };//CONTAINERS
+
+                    }
+                });
+            }
+        }
+        return foundObject;
+    }
+
+    flyHome() {
+        this.cameraControls.setLookAt(0, WORLD.zoom.start, 0, 0, 0, 0, true);
+    }
+
+
+    dispatch(eventName, data) {
+        const event = this.events[eventName];
+        if (event) {
+            event.fire(data);
+        }
+    }
+
+    on(eventName, callback) {
+        let event = this.events[eventName];
+        if (!event) {
+            event = new DispatcherEvent(eventName);
+            this.events[eventName] = event;
+        }
+        event.registerCallback(callback);
+    }
+
+    off(eventName, callback) {
+        const event = this.events[eventName];
+        if (event && event.callbacks.indexOf(callback) > -1) {
+            event.unregisterCallback(callback);
+            if (event.callbacks.length === 0) {
+                delete this.events[eventName];
+            }
+        }
     }
 }
 
-ThreeDigitalTwin.EventDispatcher = THREE.EventDispatcher;
-export default ThreeDigitalTwin;
+class DispatcherEvent {
+    constructor(eventName) {
+        this.eventName = eventName;
+        this.callbacks = [];
+    }
+
+    registerCallback(callback) {
+        this.callbacks.push(callback);
+    }
+
+    unregisterCallback(callback) {
+        const index = this.callbacks.indexOf(callback);
+        if (index > -1) {
+            this.callbacks.splice(index, 1);
+        }
+    }
+
+    fire(data) {
+        const callbacks = this.callbacks.slice(0);
+        callbacks.forEach((callback) => {
+            callback(data);
+        });
+    }
+}
