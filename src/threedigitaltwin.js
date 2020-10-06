@@ -8,13 +8,11 @@ import * as OIMO from "oimo";
 import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
 import { MeshLine, MeshLineMaterial } from 'three.meshline'
-//import * as turf from '@turf/turf'
 
 CameraControls.install({ THREE: THREE });
 
 const near = 5;
 const far = 3500;
-//const fogColor = 'lightblue';
 
 //1 unit threejs == 1 meter
 const WORLD = {
@@ -60,8 +58,8 @@ export default class ThreeDigitalTwin {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.scope = null;
-        this.models = models;
-        this.textures = textures;
+        this.models = models || [];
+        this.textures = textures || [];
         this.camera = null;
         this.scene = null;
         this.renderer = null;
@@ -78,7 +76,7 @@ export default class ThreeDigitalTwin {
         this.events = {};
     }
 
-    init(canvas) {
+    init(canvas, axisHelper) {
 
         this.scene = new THREE.Scene();
         //this.scene.background = new THREE.Color(0xcce0ff);
@@ -87,6 +85,7 @@ export default class ThreeDigitalTwin {
         this.camera.position.set(0, WORLD.zoom.start, 0);
 
         this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", physicallyCorrectLights: true });
+
         this.renderer.shadowMap.enabled = false;
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -105,8 +104,13 @@ export default class ThreeDigitalTwin {
         this.cameraControls.setBoundary(bb);
         this.cameraControls.saveState();
 
-        //var axesHelper = new THREE.AxesHelper(WORLD.width / 2);
-        //this.scene.add(axesHelper);
+       
+
+        if (axisHelper) {
+            var axesHelper = new THREE.AxesHelper(WORLD.width / 2);
+            this.scene.add(axesHelper);
+        }
+
 
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
         canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
@@ -277,6 +281,9 @@ export default class ThreeDigitalTwin {
     }
 
     loadLayer(layerCode, geojson, properties, outline) {
+
+        console.log(geojson)
+
         if (geojson == null || geojson.features == null) return;
         var depth, altitude, color, opacity;
 
@@ -619,6 +626,8 @@ export default class ThreeDigitalTwin {
             this.ocean.position.set(0, 0, 0);
             this.ocean.rotateX(-Math.PI / 2);
 
+            this.dispatch('oceanLoaded');
+
         });
     }
 
@@ -828,16 +837,6 @@ export default class ThreeDigitalTwin {
             this.events[eventName] = event;
         }
         event.registerCallback(callback);
-    }
-
-    off(eventName, callback) {
-        const event = this.events[eventName];
-        if (event && event.callbacks.indexOf(callback) > -1) {
-            event.unregisterCallback(callback);
-            if (event.callbacks.length === 0) {
-                delete this.events[eventName];
-            }
-        }
     }
 }
 
