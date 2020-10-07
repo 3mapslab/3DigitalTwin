@@ -7,7 +7,8 @@ import { Water } from "three/examples/jsm/objects/Water.js";
 import * as OIMO from "oimo";
 import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
-import { MeshLine, MeshLineMaterial } from 'three.meshline'
+import { MeshLine, MeshLineMaterial } from 'three.meshline';
+import * as ThreeGeo from '../node_modules/geo-three/build/geo-three.js';
 
 CameraControls.install({ THREE: THREE });
 
@@ -22,7 +23,7 @@ const WORLD = {
     {
         start: 250,
         min: 10,
-        max: 500
+        max: 10000
     },
     center: {
         lng: -8.7016652234108349,
@@ -74,6 +75,7 @@ export default class ThreeDigitalTwin {
         this.layers = new Map();
         this.INTERSECTED = null;
         this.events = {};
+        this._3DTile = null;
     }
 
     init(canvas, axisHelper) {
@@ -95,7 +97,7 @@ export default class ThreeDigitalTwin {
         this.cameraControls.verticalDragToForward = true;
         this.cameraControls.dollyToCursor = false;
         this.cameraControls.maxPolarAngle = Math.PI / 2;
-        this.cameraControls.maxDistance = 800; //1KM
+        this.cameraControls.maxDistance = WORLD.zoom.max; //1KM
 
         const bb = new THREE.Box3(
             new THREE.Vector3(-WORLD.width / 2, 10, -WORLD.height / 2),
@@ -104,7 +106,7 @@ export default class ThreeDigitalTwin {
         this.cameraControls.setBoundary(bb);
         this.cameraControls.saveState();
 
-       
+
 
         if (axisHelper) {
             var axesHelper = new THREE.AxesHelper(WORLD.width / 2);
@@ -120,8 +122,52 @@ export default class ThreeDigitalTwin {
         this._initOcean();
         this._initSkyBox();
         this._initPhysicWorld();
+        this._initAllTiles();
+
+        // Create the map view and add it to your THREE scene
+        this._3DTile = new ThreeGeo.MapView(this.modes[2][1], this.providers[9][1], this.providers[15][1]);
+        this._3DTile.position.set(- this.centerWorldInMeters[0], 0, this.centerWorldInMeters[1]);
 
         this.animate();
+
+    }
+
+    _initAllTiles() {
+        var DEV_MAPBOX_API_KEY = "pk.eyJ1IjoidGVudG9uZSIsImEiOiJjazBwNHU4eDQwZzE4M2VzOGhibWY5NXo5In0.8xpF1DEcT6Y4000vNhjj1g";
+        var DEV_HEREMAPS_APP_ID = "HqSchC7XT2PA9qCfxzFq";
+        var DEV_HEREMAPS_APP_CODE = "5rob9QcZ70J-m18Er8-rIA";
+        var DEV_BING_API_KEY = "AuViYD_FXGfc3dxc0pNa8ZEJxyZyPq1lwOLPCOydV3f0tlEVH-HKMgxZ9ilcRj-T";
+        var DEV_MAPTILER_API_KEY = "B9bz5tIKxl4beipiIbR0";
+        var OPEN_MAP_TILES_SERVER_MAP = "";
+
+        this.providers = [
+            ["Vector OpenSteet Maps", new ThreeGeo.OpenStreetMapsProvider()],
+            ["Vector OpenTile Maps", new ThreeGeo.OpenMapTilesProvider(OPEN_MAP_TILES_SERVER_MAP)],
+            ["Vector Map Box", new ThreeGeo.MapBoxProvider(DEV_MAPBOX_API_KEY, "mapbox/streets-v10", ThreeGeo.MapBoxProvider.STYLE)],
+            ["Vector Here Maps", new ThreeGeo.HereMapsProvider(DEV_HEREMAPS_APP_ID, DEV_HEREMAPS_APP_CODE, "base", "normal.day")],
+            ["Vector Here Maps Night", new ThreeGeo.HereMapsProvider(DEV_HEREMAPS_APP_ID, DEV_HEREMAPS_APP_CODE, "base", "normal.night")],
+            ["Vector Here Maps Terrain", new ThreeGeo.HereMapsProvider(DEV_HEREMAPS_APP_ID, DEV_HEREMAPS_APP_CODE, "aerial", "terrain.day")],
+            ["Vector Bing Maps", new ThreeGeo.BingMapsProvider(DEV_BING_API_KEY, ThreeGeo.BingMapsProvider.ROAD)],
+            ["Vector Map Tiler Basic", new ThreeGeo.MapTilerProvider(DEV_MAPTILER_API_KEY, "maps", "basic", "png")],
+            ["Vector Map Tiler Outdoor", new ThreeGeo.MapTilerProvider(DEV_MAPTILER_API_KEY, "maps", "outdoor", "png")],
+            ["Satellite Map Box", new ThreeGeo.MapBoxProvider(DEV_MAPBOX_API_KEY, "mapbox.satellite", ThreeGeo.MapBoxProvider.MAP_ID, "jpg70", false)],
+            ["Satellite Map Box Labels", new ThreeGeo.MapBoxProvider(DEV_MAPBOX_API_KEY, "mapbox/satellite-streets-v10", ThreeGeo.MapBoxProvider.STYLE, "jpg70")],
+            ["Satellite Here Maps", new ThreeGeo.HereMapsProvider(DEV_HEREMAPS_APP_ID, DEV_HEREMAPS_APP_CODE, "aerial", "satellite.day", "jpg")],
+            ["Satellite Bing Maps", new ThreeGeo.BingMapsProvider(DEV_BING_API_KEY, ThreeGeo.BingMapsProvider.AERIAL)],
+            ["Satellite Maps Tiler Labels", new ThreeGeo.MapTilerProvider(DEV_MAPTILER_API_KEY, "maps", "hybrid", "jpg")],
+            ["Satellite Maps Tiler", new ThreeGeo.MapTilerProvider(DEV_MAPTILER_API_KEY, "tiles", "satellite", "jpg")],
+            ["Height Map Box", new ThreeGeo.MapBoxProvider(DEV_MAPBOX_API_KEY, "mapbox.terrain-rgb", ThreeGeo.MapBoxProvider.MAP_ID, "pngraw")],
+            ["Height Map Tiler", new ThreeGeo.MapTilerProvider(DEV_MAPTILER_API_KEY, "tiles", "terrain-rgb", "png")],
+            ["Debug Height Map Box", new ThreeGeo.HeightDebugProvider(new ThreeGeo.MapBoxProvider(DEV_MAPBOX_API_KEY, "mapbox.terrain-rgb", ThreeGeo.MapBoxProvider.MAP_ID, "pngraw"))],
+            ["Debug", new ThreeGeo.DebugProvider()]
+        ];
+
+        this.modes = [
+            ["Planar", ThreeGeo.MapView.PLANAR],
+            ["Height", ThreeGeo.MapView.HEIGHT],
+            ["Height Shader", ThreeGeo.MapView.HEIGHT_SHADER],
+            ["Spherical", ThreeGeo.MapView.SPHERICAL]
+        ];
     }
 
     _initAllModels() {
@@ -640,6 +686,14 @@ export default class ThreeDigitalTwin {
 
         this.ocean.material.dispose();
         this.ocean.geometry.dispose();
+    }
+
+    toggle3DTile(state) {
+        if (state) {
+            this.scene.add(this._3DTile);
+        } else {
+            this.scene.remove(this._3DTile);
+        }
     }
 
     _initPhysicWorld() {

@@ -15,6 +15,7 @@
     "camera-controls": "^1.22.1",
     "es6-tween": "^5.5.11",
     "fetch": "^1.1.0",
+    "geo-three": "0.0.3",
     "geometry-extrude": "^0.1.2",
     "oimo": "^1.0.9",
     "proj4": "^2.6.2",
