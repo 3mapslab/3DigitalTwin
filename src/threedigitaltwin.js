@@ -327,38 +327,19 @@ export default class ThreeDigitalTwin {
     }
 
     loadLayer(layerCode, geojson, properties, outline) {
-
-        console.log(geojson)
-
         if (geojson == null || geojson.features == null) return;
         var depth, altitude, color, opacity;
 
         if (properties) {
-            depth = properties && properties.depth != null ? properties.depth : 2;
-            altitude = properties && properties.altitude != null ? properties.altitude : 0;
+            depth = properties && properties.depth != null && !isNaN(properties.depth) ? properties.depth : 2;
+            altitude = properties && properties.altitude != null && !isNaN(properties.altitude) ? properties.altitude : 0;
             color = properties && properties.material && properties.material.color ? properties.material.color : 'white';
             opacity = properties && properties.material && properties.material.opacity != null ? properties.material.opacity : 1;
-            //   var depthWrite = properties && properties.material && properties.material.depthWrite ? properties.material.depthWrite : true;
-            //      var blending = properties && properties.material && properties.material.blending ? THREE.AdditiveBlending : THREE.NormalBlending;
-            //      var polygonOffset = properties && properties.material && properties.material.polygonOffset ? properties.material.polygonOffset : false;
-            //      var polygonOffsetFactor = properties && properties.material && properties.material.polygonOffsetFactor != null ? properties.material.polygonOffsetFactor : 0;
-            //      var polygonOffsetUnits = properties && properties.material && properties.material.polygonOffsetUnits != null ? properties.material.polygonOffsetUnits : 0;
-            //      var transparent = true;
-            //   var depthT = properties && properties.material && properties.material.depthTest ? properties.material.depthTest : true;
         }
 
-
         var material_options = {
-            // depth: THREE.GreaterDepth,
-            //       blending: blending,
             color: new THREE.Color(color),
             opacity: opacity,
-            //depthTest: true,
-            //  depthWrite: false,
-            //         polygonOffset: polygonOffset,
-            //       polygonOffsetFactor: polygonOffsetFactor,
-            //       polygonOffsetUnits: polygonOffsetUnits,
-            //         transparent: transparent,
         };
 
         var reproject_geojson = this.convertGeoJsonToWorldUnits(geojson);
@@ -399,7 +380,6 @@ export default class ThreeDigitalTwin {
             mesh = new THREE.Mesh(geometry, material);
 
         }
-        //mesh.renderOrder = properties.material.polygonOffsetUnits * -1;
         mesh.matrixAutoUpdate = false;
         mesh.receiveShadow = false;
         mesh.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
