@@ -8,7 +8,7 @@ import * as OIMO from "oimo";
 import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
-import * as ThreeGeo from '../node_modules/geo-three/build/geo-three.js';
+import * as ThreeGeo from 'geo-three/build/geo-three.js';
 
 CameraControls.install({ THREE: THREE });
 
