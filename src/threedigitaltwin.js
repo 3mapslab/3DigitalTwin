@@ -315,10 +315,19 @@ export default class ThreeDigitalTwin {
                 "features": [feature],
             };
             if (feature.properties.asset_type_configuration) {
-                prop.depth = feature.properties.asset_type_configuration.options_extrudeSettings_depth;
-                prop.altitude = feature.properties.asset_type_configuration.options_altitude;
-                prop.material.color = feature.properties.asset_type_configuration.options_material_color.substring(0, 7);
-                prop.material.opacity = feature.properties.asset_type_configuration.options_material_opacity;
+
+                if (feature.properties.asset_type_configuration.options_extrudeSettings_depth)
+                    prop.depth = feature.properties.asset_type_configuration.options_extrudeSettings_depth;
+
+                if (feature.properties.asset_type_configuration.options_altitude)
+                    prop.altitude = feature.properties.asset_type_configuration.options_altitude;
+
+                if (feature.properties.asset_type_configuration.options_material_color)
+                    prop.material.color = feature.properties.asset_type_configuration.options_material_color.substring(0, 7);
+
+                if (feature.properties.asset_type_configuration.options_material_opacity)
+                    prop.material.opacity = feature.properties.asset_type_configuration.options_material_opacity;
+
                 this.loadLayer(layerCode, geojson_feature, prop, outline);
             } else {
                 this.loadLayer(layerCode, geojson_feature, properties, outline);
