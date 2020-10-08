@@ -23,7 +23,7 @@ const WORLD = {
     {
         start: 250,
         min: 10,
-        max: 10000
+        max: 500
     },
     center: {
         lng: -8.7016652234108349,
@@ -222,6 +222,8 @@ export default class ThreeDigitalTwin {
             // onLoad callback
             (geometry) => {
                 this.modelsMesh.set(name, geometry);
+
+                this.dispatch('init_' + name + "_model");
             },
 
             // onProgress callback
