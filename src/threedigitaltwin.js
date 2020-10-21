@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
@@ -14,22 +16,6 @@ CameraControls.install({ THREE: THREE });
 
 const near = 5;
 const far = 3500;
-
-//1 unit threejs == 1 meter
-const WORLD = {
-    width: 15000,
-    height: 15000,
-    zoom:
-    {
-        start: 250,
-        min: 10,
-        max: 500
-    },
-    center: {
-        lng: -8.7016652234108349,
-        lat: 41.185523935676713
-    }
-};
 
 const PHYSICWORLD =
 {
@@ -55,7 +41,37 @@ export default class ThreeDigitalTwin {
      * }
      * 
     */
-    constructor(models, textures) {
+    constructor(configs, models, textures) {
+
+        this.width = configs.width || 15000;
+        this.height = configs.height || 15000;
+
+        this.zoom = configs.zoom || {};
+        this.zoom.start = configs.zoom.start || 250;
+        this.zoom.min = configs.zoom.min || 10;
+        this.zoom.max = configs.zoom.max || 500;
+
+        this.center = configs.center || {};
+        this.center.lng = configs.center.lng || -8.7016652234108349;
+        this.center.lat = configs.center.lat || 41.185523935676713;
+
+        /*
+        this.pit
+        this.pitchAngle.start = configs.pitchAngle.start || 0;
+        this.pitchAngle.min = configs.pitchAngle.min || 0;
+        this.pitchAngle.max = configs.pitchAngle.max || Math.PI;
+
+        this.bearingAngle.start = configs.bearingAngle.start || 0;
+        this.bearingAngle.min = configs.bearingAngle.min || 0;
+        this.bearingAngle.max = configs.bearingAngle.max || Math.PI / 2;
+        */
+
+        this.oceanVisible = configs.oceanVisible || true;
+        this.axisHelper = configs.axisHelper || false;
+
+        this.providerMapTile = configs.providerMapTile || null;
+        this.modeMapTile = configs.modeMapTile || null;
+        
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.scope = null;
@@ -68,7 +84,7 @@ export default class ThreeDigitalTwin {
         this.cameraControls = null;
         this.physicWorld = null;
         this.clock = new THREE.Clock();
-        this.centerWorldInMeters = this.convertCoordinatesToUnits(WORLD.center.lng, WORLD.center.lat);
+        this.centerWorldInMeters = this.convertCoordinatesToUnits(this.center.lng, this.center.lat);
         this.modelsMesh = new Map();
         this.materialsMesh = new Map();
         this.cubeMaterial = new Map();
@@ -84,7 +100,7 @@ export default class ThreeDigitalTwin {
         //this.scene.background = new THREE.Color(0xcce0ff);
         //this.scene.fog = new THREE.Fog(0xcce0ff, far / 4, far / 2);
         this.camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, near, far);
-        this.camera.position.set(0, WORLD.zoom.start, 0);
+        this.camera.position.set(0, this.zoom.start, 0);
 
         this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", physicallyCorrectLights: true });
 
@@ -97,11 +113,11 @@ export default class ThreeDigitalTwin {
         this.cameraControls.verticalDragToForward = true;
         this.cameraControls.dollyToCursor = false;
         this.cameraControls.maxPolarAngle = Math.PI / 2;
-        this.cameraControls.maxDistance = WORLD.zoom.max; //1KM
+        this.cameraControls.maxDistance = this.zoom.max; //1KM
 
         const bb = new THREE.Box3(
-            new THREE.Vector3(-WORLD.width / 2, 10, -WORLD.height / 2),
-            new THREE.Vector3(WORLD.width / 2, this.cameraControls.maxDistance, WORLD.height / 2)
+            new THREE.Vector3(-this.width / 2, 10, -this.height / 2),
+            new THREE.Vector3(this.width / 2, this.cameraControls.maxDistance, this.height / 2)
         );
         this.cameraControls.setBoundary(bb);
         this.cameraControls.saveState();
@@ -109,7 +125,7 @@ export default class ThreeDigitalTwin {
 
 
         if (axisHelper) {
-            var axesHelper = new THREE.AxesHelper(WORLD.width / 2);
+            var axesHelper = new THREE.AxesHelper(this.width / 2);
             this.scene.add(axesHelper);
         }
 
@@ -119,7 +135,9 @@ export default class ThreeDigitalTwin {
 
         this._initAllTextures();
         this._initAllModels();
-        this._initOcean();
+        if (this.oceanVisible) {
+            this._initOcean();
+        }
         this._initSkyBox();
         this._initPhysicWorld();
         this._initAllTiles();
@@ -584,7 +602,7 @@ export default class ThreeDigitalTwin {
     _initSkyBox() {
         // Add Sky
         this.sky = new Sky();
-        this.sky.scale.setScalar(WORLD.width / 2);
+        this.sky.scale.setScalar(this.width / 2);
         this.scene.add(this.sky);
 
         // Add Sun Helper
@@ -609,7 +627,7 @@ export default class ThreeDigitalTwin {
             exposure: 1
         };
 
-        var distance = WORLD.height;
+        var distance = this.height;
 
         var uniforms = this.sky.material.uniforms;
         uniforms["turbidity"].value = this.effectController.turbidity;
@@ -639,7 +657,7 @@ export default class ThreeDigitalTwin {
     }
 
     _initOcean() {
-        var geometry = new THREE.PlaneBufferGeometry(WORLD.height, WORLD.height);
+        var geometry = new THREE.PlaneBufferGeometry(this.height, this.height);
         this._loadTexture('https://raw.githubusercontent.com/jbouny/ocean/master/assets/img/waternormals.jpg').then((texture) => {
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 
@@ -699,7 +717,7 @@ export default class ThreeDigitalTwin {
         this.physicWorld.meshes = [];
 
         //init ground in oimo world
-        this.physicWorld.add({ size: [WORLD.width, 5, WORLD.height], pos: [0, 0, 0] }); // ground
+        this.physicWorld.add({ size: [this.width, 5, this.height], pos: [0, 0, 0] }); // ground
     }
 
     _updatePhysicWorld() {
@@ -713,6 +731,26 @@ export default class ThreeDigitalTwin {
             }
         }
         localStorage.setItem('oimo-stats', this.physicWorld.getInfo());
+    }
+
+    loadModel(modelPath, coordinates) {
+        var loader = new GLTFLoader();
+        loader.load(
+            // resource URL
+            modelPath,
+            // onLoad callback
+            (gltf) => {
+                var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
+                gltf.scene.position.copy(targetPosition);
+                this.scene.add(gltf.scene);
+                this.renderer.render();
+            },
+            // onError callback
+            (error) => {
+                console.log(error);
+            }
+        );
     }
 
     _loadTexture(texturePath) {
@@ -864,7 +902,7 @@ export default class ThreeDigitalTwin {
     }
 
     flyHome() {
-        this.cameraControls.setLookAt(0, WORLD.zoom.start, 0, 0, 0, 0, true);
+        this.cameraControls.setLookAt(0, this.zoom.start, 0, 0, 0, 0, true);
     }
 
 
