@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
+// import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
@@ -732,52 +733,73 @@ export default class ThreeDigitalTwin {
         localStorage.setItem('oimo-stats', this.physicWorld.getInfo());
     }
 
-    _loadKMZModel(modelPath, coordinates) {
-        
-        return new Promise((reject) => {
-            new KMZLoader().load(
-                // resource URL
-                modelPath,
-                // onLoad callback
-                (kmz) => {
-                    var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                    var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
-                    kmz.scene.position.copy(targetPosition);
-
-                    this.scene.add(kmz.scene);
-                    this.renderer.render();
-                },
-                // onError callback
-                (err) => {
-                    console.log('Error with model', modelPath);
-                    console.log('An error happened', err);
-                    reject(err)
-                }
-            )}
-        );
-        
-    }
-
     _loadModel(modelPath, coordinates) {
 
-        var loader = new GLTFLoader();
-        loader.load(
-            // resource URL
-            modelPath,
-            // onLoad callback
-            (gltf) => {
-                var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
-                gltf.scene.position.copy(targetPosition);
-                
-                this.scene.add(gltf.scene);
-                this.renderer.render();
-            },
-            // onError callback
-            (error) => {
-                console.log(error);
-            }
-        );
+        var extensionValue = modelPath.split('.').pop();
+
+        switch(extensionValue) {
+            case("kmz"):
+
+                var loaderKMZ = new KMZLoader();
+                loaderKMZ.load(
+                    // resource URL
+                    modelPath,
+                    // onLoad callback
+                    (kmz) => {
+                        var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                        var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
+                        kmz.scene.position.copy(targetPosition);
+    
+                        this.scene.add(kmz.scene);
+                        this.renderer.render();
+                    },
+                    // onError callback
+                    (err) => {
+                        console.log('Error with model', modelPath);
+                        console.log('An error happened', err);
+                    }
+                );
+                break;
+
+            case("gltf"):
+
+                var loaderGLTF = new GLTFLoader();
+                loaderGLTF.load(
+                    // resource URL
+                    modelPath,
+                    // onLoad callback
+                    (gltf) => {
+                        var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                        var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
+                        gltf.scene.position.copy(targetPosition);
+                        
+                        this.scene.add(gltf.scene);
+                        this.renderer.render();
+                    },
+                    // onError callback
+                    (error) => {
+                        console.log(error);
+                    }
+                );
+
+                break;
+            
+            case("skp"):
+                    
+                // to complete
+
+                break;
+
+            case("obj"):
+
+                // to complete
+
+                break;
+            
+            default:
+                break;
+            
+        }
     }
 
     _loadTexture(texturePath) {
