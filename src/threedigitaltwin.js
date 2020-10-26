@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
-// import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
@@ -736,70 +737,48 @@ export default class ThreeDigitalTwin {
     _loadModel(modelPath, coordinates) {
 
         var extensionValue = modelPath.split('.').pop();
+        var loader;
 
         switch(extensionValue) {
             case("kmz"):
-
-                var loaderKMZ = new KMZLoader();
-                loaderKMZ.load(
-                    // resource URL
-                    modelPath,
-                    // onLoad callback
-                    (kmz) => {
-                        var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                        var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
-                        kmz.scene.position.copy(targetPosition);
-    
-                        this.scene.add(kmz.scene);
-                        this.renderer.render();
-                    },
-                    // onError callback
-                    (err) => {
-                        console.log('Error with model', modelPath);
-                        console.log('An error happened', err);
-                    }
-                );
+                loader = new KMZLoader();
                 break;
 
             case("gltf"):
-
-                var loaderGLTF = new GLTFLoader();
-                loaderGLTF.load(
-                    // resource URL
-                    modelPath,
-                    // onLoad callback
-                    (gltf) => {
-                        var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                        var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
-                        gltf.scene.position.copy(targetPosition);
-                        
-                        this.scene.add(gltf.scene);
-                        this.renderer.render();
-                    },
-                    // onError callback
-                    (error) => {
-                        console.log(error);
-                    }
-                );
-
-                break;
-            
-            case("skp"):
-                    
-                // to complete
-
+                loader = new GLTFLoader();
                 break;
 
             case("obj"):
+                loader = new OBJLoader();
+                break;
 
-                // to complete
-
+            case("dae"):
+                loader = new ColladaLoader();
                 break;
             
             default:
                 break;
-            
         }
+
+        loader.load(
+            // resource URL
+            modelPath,
+            // onLoad callback
+            (model) => {
+                var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
+                model.scene.position.copy(targetPosition);
+
+                this.scene.add(model.scene);
+                this.renderer.render();
+            },
+            // onError callback
+            (error) => {
+                console.log('Error with model', modelPath);
+                console.log(error);
+            }
+        );
+            
     }
 
     _loadTexture(texturePath) {
