@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
@@ -779,6 +780,38 @@ export default class ThreeDigitalTwin {
             }
         );
             
+    }
+
+    __AUXloadModel(modelPath, coordinates) {
+            console.log(coordinates);
+            /*
+            var mtlLoader = new MTLLoader();
+            mtlLoader.setPath('3DigitalTwinDemoApp/public/models/bollard_obj/source');
+            mtlLoader.load('WharfRoadRM.mtl', function(materials) {
+                materials.preload();
+                var objLoader = new OBJLoader();
+                objLoader.setMaterials(materials);
+                objLoader.setPath('3DigitalTwinDemoApp/public/models/bollard_obj/source');
+                objLoader.load('WharfRoadRM.obj', function(object) {
+                    this.scene.add (object.scene);
+                    this.scene.add (new THREE.BoxHelper (object));
+                });
+            });
+            */
+           
+            /*
+           let mtlLoader = new MTLLoader();
+ 
+           let objLoader = new OBJLoader();
+            
+           mtlLoader.load('../3DigitalTwinDemoApp/public/models/bollard_obj/source/WharfRoadRM.mtl', (materials) => {
+             materials.preload();
+             objLoader.setMaterials(materials)
+             objLoader.load('../3DigitalTwinDemoApp/public/models/bollard_obj/source/test.obj', (object) => {
+               this.scene.add(object);
+             });
+           })
+           */
     }
 
     _loadTexture(texturePath) {
