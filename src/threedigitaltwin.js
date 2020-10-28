@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
@@ -14,6 +15,7 @@ import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
+
 
 CameraControls.install({ THREE: THREE });
 
@@ -735,7 +737,7 @@ export default class ThreeDigitalTwin {
         localStorage.setItem('oimo-stats', this.physicWorld.getInfo());
     }
 
-    _loadModel(modelPath, coordinates) {
+    _loadModel(modelPath, coordinates, rotation, scale, height) {
 
         var extensionValue = modelPath.split('.').pop();
         var loader;
@@ -750,8 +752,26 @@ export default class ThreeDigitalTwin {
                 break;
 
             case("obj"):
-                loader = new OBJLoader();
-                break;
+                new OBJLoader2().load(modelPath, (model) => {
+                    
+                    var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                    var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], height || 0, -(units[1] - this.centerWorldInMeters[1]));
+                    console.log(targetPosition)
+                    model.position.copy(targetPosition);
+
+                    if(rotation) {
+                        //model.rotation.copy(new THREE.Vector3(rotation.x, rotation.y, rotation.z));
+                        model.rotation.x = rotation.x;
+                        model.rotation.y = rotation.y;
+                        model.rotation.z = rotation.z;
+                    }
+
+                    if(scale) {
+                        model.scale.copy(new THREE.Vector3(scale, scale, scale));
+                    }
+                    this.scene.add(model);
+                });
+                return;
 
             case("dae"):
                 loader = new ColladaLoader();
@@ -766,12 +786,20 @@ export default class ThreeDigitalTwin {
             modelPath,
             // onLoad callback
             (model) => {
+
                 var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
                 var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
                 model.scene.position.copy(targetPosition);
 
+                if(rotation) {
+                    model.scene.rotation.z = rotation;
+                }
+
+                if(scale) {
+                    model.scene.scale.copy(new THREE.Vector3(scale, scale, scale));
+                }
+
                 this.scene.add(model.scene);
-                this.renderer.render();
             },
             // onError callback
             (error) => {
@@ -780,38 +808,6 @@ export default class ThreeDigitalTwin {
             }
         );
             
-    }
-
-    __AUXloadModel(modelPath, coordinates) {
-            console.log(coordinates);
-            /*
-            var mtlLoader = new MTLLoader();
-            mtlLoader.setPath('3DigitalTwinDemoApp/public/models/bollard_obj/source');
-            mtlLoader.load('WharfRoadRM.mtl', function(materials) {
-                materials.preload();
-                var objLoader = new OBJLoader();
-                objLoader.setMaterials(materials);
-                objLoader.setPath('3DigitalTwinDemoApp/public/models/bollard_obj/source');
-                objLoader.load('WharfRoadRM.obj', function(object) {
-                    this.scene.add (object.scene);
-                    this.scene.add (new THREE.BoxHelper (object));
-                });
-            });
-            */
-           
-            /*
-           let mtlLoader = new MTLLoader();
- 
-           let objLoader = new OBJLoader();
-            
-           mtlLoader.load('../3DigitalTwinDemoApp/public/models/bollard_obj/source/WharfRoadRM.mtl', (materials) => {
-             materials.preload();
-             objLoader.setMaterials(materials)
-             objLoader.load('../3DigitalTwinDemoApp/public/models/bollard_obj/source/test.obj', (object) => {
-               this.scene.add(object);
-             });
-           })
-           */
     }
 
     _loadTexture(texturePath) {
