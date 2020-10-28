@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+// import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
+// import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
@@ -788,11 +788,14 @@ export default class ThreeDigitalTwin {
             (model) => {
 
                 var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], 0, -(units[1] - this.centerWorldInMeters[1]));
+                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], height || 0, -(units[1] - this.centerWorldInMeters[1]));
                 model.scene.position.copy(targetPosition);
 
                 if(rotation) {
-                    model.scene.rotation.z = rotation;
+                    //model.rotation.copy(new THREE.Vector3(rotation.x, rotation.y, rotation.z));
+                    model.rotation.x = rotation.x;
+                    model.rotation.y = rotation.y;
+                    model.rotation.z = rotation.z;
                 }
 
                 if(scale) {
