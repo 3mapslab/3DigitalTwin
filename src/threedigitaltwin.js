@@ -737,7 +737,16 @@ export default class ThreeDigitalTwin {
         localStorage.setItem('oimo-stats', this.physicWorld.getInfo());
     }
 
-    _loadModel(modelPath, coordinates, rotation, scale, height) {
+
+    /**
+     * Adds an object to the scene in the given coordinates, given a path
+     * @param {string} modelPath - File path or URL of the object
+     * @param {Array} coordinates - Real world coordinates of the object
+     * @param {Object} rotation - Rotation of object in the 3 axes e.g. {x:1,y:0,z:0}
+     * @param {number} scale - Scale of the object
+     * @param {number} altitude - Altitude of the object
+     */
+    _loadModel(modelPath, coordinates, rotation, scale, altitude) {
 
         var extensionValue = modelPath.split('.').pop();
         var loader;
@@ -752,15 +761,15 @@ export default class ThreeDigitalTwin {
                 break;
 
             case("obj"):
-                new OBJLoader2().load(modelPath, (model) => {
+                new OBJLoader2().load(modelPath,
+                    
+                    (model) => {
                     
                     var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                    var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], height || 0, -(units[1] - this.centerWorldInMeters[1]));
-                    console.log(targetPosition)
+                    var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
                     model.position.copy(targetPosition);
 
                     if(rotation) {
-                        //model.rotation.copy(new THREE.Vector3(rotation.x, rotation.y, rotation.z));
                         model.rotation.x = rotation.x;
                         model.rotation.y = rotation.y;
                         model.rotation.z = rotation.z;
@@ -770,6 +779,14 @@ export default class ThreeDigitalTwin {
                         model.scale.copy(new THREE.Vector3(scale, scale, scale));
                     }
                     this.scene.add(model);
+                },
+                
+                undefined,
+
+                // onError callback
+                (error) => {
+                    console.log('Error with model', modelPath);
+                    console.log(error);
                 });
                 return;
 
@@ -788,7 +805,7 @@ export default class ThreeDigitalTwin {
             (model) => {
 
                 var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], height || 0, -(units[1] - this.centerWorldInMeters[1]));
+                var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
                 model.scene.position.copy(targetPosition);
 
                 if(rotation) {
@@ -804,6 +821,10 @@ export default class ThreeDigitalTwin {
 
                 this.scene.add(model.scene);
             },
+
+             // onProgress callback
+            undefined,
+
             // onError callback
             (error) => {
                 console.log('Error with model', modelPath);
