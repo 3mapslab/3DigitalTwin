@@ -361,18 +361,29 @@ export default class ThreeDigitalTwin {
 
     loadLayer(layerCode, geojson, properties, outline) {
         if (geojson == null || geojson.features == null) return;
-        var depth, altitude, color, opacity;
+        var depth, altitude, color, opacity, texture;
 
         if (properties) {
             depth = properties && properties.depth != null && !isNaN(properties.depth) ? properties.depth : 2;
             altitude = properties && properties.altitude != null && !isNaN(properties.altitude) ? properties.altitude : 0;
             color = properties && properties.material && properties.material.color ? properties.material.color : 'white';
             opacity = properties && properties.material && properties.material.opacity != null ? properties.material.opacity : 1;
+            texture =  properties && properties.material && properties.material.texture != null
+                ? new THREE.TextureLoader().load(properties.material.texture) : null;
+        }
+
+        // testing purposes
+        if(texture) {
+            texture.wrapS = THREE.MirroredRepeatWrapping;
+            texture.wrapT = THREE.MirroredRepeatWrapping;
+            texture.repeat.set( 4, 4 );
+            console.log(texture)
         }
 
         var material_options = {
             color: new THREE.Color(color),
             opacity: opacity,
+            map: texture,
         };
 
         var reproject_geojson = this.convertGeoJsonToWorldUnits(geojson);
@@ -383,8 +394,7 @@ export default class ThreeDigitalTwin {
             excludeBottom: true,
             translate: [-this.centerWorldInMeters[0], -this.centerWorldInMeters[1]]
         });
-        const { position, normal, indices } = polygon;
-
+        const { position, normal, indices, uv } = polygon;
         var mesh = null;
         var geometry = null;
         var material = null;
@@ -406,6 +416,7 @@ export default class ThreeDigitalTwin {
             geometry = new THREE.BoxBufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
             geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3));
+            geometry.setAttribute('uv',  new THREE.Float32BufferAttribute(uv, 3))
             geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
             geometry.translate(0, 0, altitude);
 
