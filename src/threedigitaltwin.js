@@ -52,23 +52,23 @@ export default class ThreeDigitalTwin {
         this.height = configs.height || 15000;
 
         this.zoom = configs.zoom || {};
-        this.zoom.start = configs.zoom.start || 250;
-        this.zoom.min = configs.zoom.min || 10;
-        this.zoom.max = configs.zoom.max || 500;
+        this.zoom.start = configs.zoom && configs.zoom.start ? configs.zoom.start : 250;
+        this.zoom.min = configs.zoom && configs.zoom.min ? configs.zoom.min : 10;
+        this.zoom.max = configs.zoom && configs.zoom.max ? configs.zoom.min : 500;
 
         this.center = configs.center || {};
-        this.center.lng = configs.center.lng || -8.7016652234108349;
-        this.center.lat = configs.center.lat || 41.185523935676713;
+        this.center.lng = configs.center && configs.center.lng ? configs.center.lng : -8.7016652234108349;
+        this.center.lat = configs.center && configs.center.lat ? configs.center.lat : 41.185523935676713;
 
         this.pitchAngle = configs.pitchAngle || {}
-        this.pitchAngle.start = configs.pitchAngle.start || 0;
-        this.pitchAngle.min = configs.pitchAngle.min || 0;
-        this.pitchAngle.max = configs.pitchAngle.max || Math.PI;
+        this.pitchAngle.start = configs.pitchAngle && configs.pitchAngle.start ? configs.pitchAngle.start : 0;
+        this.pitchAngle.min = configs.pitchAngle && configs.pitchAngle.min ? configs.pitchAngle.min : 0;
+        this.pitchAngle.max = configs.pitchAngle && configs.pitchAngle.max ? configs.pitchAngle.max : Math.PI;
 
         this.bearingAngle = configs.bearingAngle || {}
-        this.bearingAngle.start = configs.bearingAngle.start || 0;
-        this.bearingAngle.min = configs.bearingAngle.min || 0;
-        this.bearingAngle.max = configs.bearingAngle.max || Math.PI / 2;
+        this.bearingAngle.start = configs.bearingAngle && configs.bearingAngle.start ? configs.bearingAngle.start : 0;
+        this.bearingAngle.min = configs.bearingAngle && configs.bearingAngle.min ? configs.bearingAngle.min : 0;
+        this.bearingAngle.max = configs.bearingAngle && configs.bearingAngle.max ? configs.bearingAngle.max : Math.PI / 2;
         
         this.oceanVisible = configs.oceanVisible || true;
         this.axisHelper = configs.axisHelper || false;
