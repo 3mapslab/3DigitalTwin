@@ -54,7 +54,7 @@ export default class ThreeDigitalTwin {
         this.zoom = configs.zoom || {};
         this.zoom.start = configs.zoom && configs.zoom.start ? configs.zoom.start : 250;
         this.zoom.min = configs.zoom && configs.zoom.min ? configs.zoom.min : 10;
-        this.zoom.max = configs.zoom && configs.zoom.max ? configs.zoom.min : 500;
+        this.zoom.max = configs.zoom && configs.zoom.max ? configs.zoom.max : 500;
 
         this.center = configs.center || {};
         this.center.lng = configs.center && configs.center.lng ? configs.center.lng : -8.7016652234108349;
