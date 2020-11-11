@@ -102,7 +102,8 @@ export default class ThreeDigitalTwin {
 
         this.scene = new THREE.Scene();
         //this.scene.background = new THREE.Color(0xcce0ff);
-        //this.scene.fog = new THREE.Fog(0xcce0ff, far / 4, far / 2);
+        //this.scene.fog = new THREE.Fog(0xF5F5F5, far / 4, far / 2);
+        this.scene.fog = new THREE.Fog(0xFFFFFF, far / 3, far / 2);
         this.camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, near, far);
         this.camera.position.set(0, this.zoom.start, 0);
 
