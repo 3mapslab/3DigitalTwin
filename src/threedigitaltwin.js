@@ -778,7 +778,6 @@ export default class ThreeDigitalTwin {
                     
                     var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
                     var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
-                    model.position.copy(targetPosition);
 
                     if(rotation) {
                         model.rotation.x = rotation.x;
@@ -791,16 +790,15 @@ export default class ThreeDigitalTwin {
                     }
 
                     // Adding 2 levels of detail
-                    let lod = new THREE.LOD();
+                    const lod = new THREE.LOD();
                     lod.addLevel(model.scene, 0);
                     // empty cube 
-                    const geometry = new THREE.BoxGeometry( 0, 0, 0);
+                    const geometry = new THREE.BoxGeometry(0, 0, 0);
                     const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
                     const cube = new THREE.Mesh( geometry, material );
-                    cube.position.set(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
                     lod.addLevel(cube, 1500);
+                    lod.position.copy(targetPosition);
 
-                    // this.scene.add(model);
                     this.scene.add(lod);
                 },
                 
@@ -829,7 +827,6 @@ export default class ThreeDigitalTwin {
 
                 var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
                 var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
-                model.scene.position.copy(targetPosition);
 
                 if(rotation) {
                     model.rotation.x = rotation.x;
@@ -842,16 +839,15 @@ export default class ThreeDigitalTwin {
                 }
                 
                 // Adding 2 levels of detail
-                let lod = new THREE.LOD();
+                const lod = new THREE.LOD();
                 lod.addLevel(model.scene, 0);
                 // empty cube 
                 const geometry = new THREE.BoxGeometry( 0, 0, 0);
                 const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
                 const cube = new THREE.Mesh( geometry, material );
-                cube.position.set(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
                 lod.addLevel(cube, 1500);
+                lod.position.copy(targetPosition);
 
-                // this.scene.add(model.scene);
                 this.scene.add(lod);
             },
 
