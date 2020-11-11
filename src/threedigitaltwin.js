@@ -790,13 +790,18 @@ export default class ThreeDigitalTwin {
                         model.scale.copy(new THREE.Vector3(scale, scale, scale));
                     }
 
-                    // Adding 3 levels of detail
-                    const lod = new THREE.LOD();
-                    for( let i = 0; i < 3; i++ ) {   
-                        lod.addLevel( model, i * 75 );
-                    }
+                    // Adding 2 levels of detail
+                    let lod = new THREE.LOD();
+                    lod.addLevel(model.scene, 0);
+                    // empty cube 
+                    const geometry = new THREE.BoxGeometry( 0, 0, 0);
+                    const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+                    const cube = new THREE.Mesh( geometry, material );
+                    cube.position.set(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
+                    lod.addLevel(cube, 1500);
 
-                    this.scene.add(model);
+                    // this.scene.add(model);
+                    this.scene.add(lod);
                 },
                 
                 undefined,
@@ -836,13 +841,18 @@ export default class ThreeDigitalTwin {
                     model.scene.scale.copy(new THREE.Vector3(scale, scale, scale));
                 }
                 
-                // Adding 3 levels of detail
-                const lod = new THREE.LOD();
-                for( let i = 0; i < 3; i++ ) {   
-                    lod.addLevel( model, i * 75 );
-                }
+                // Adding 2 levels of detail
+                let lod = new THREE.LOD();
+                lod.addLevel(model.scene, 0);
+                // empty cube 
+                const geometry = new THREE.BoxGeometry( 0, 0, 0);
+                const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+                const cube = new THREE.Mesh( geometry, material );
+                cube.position.set(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
+                lod.addLevel(cube, 1500);
 
-                this.scene.add(model.scene);
+                // this.scene.add(model.scene);
+                this.scene.add(lod);
             },
 
              // onProgress callback
