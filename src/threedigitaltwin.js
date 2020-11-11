@@ -789,6 +789,13 @@ export default class ThreeDigitalTwin {
                     if(scale) {
                         model.scale.copy(new THREE.Vector3(scale, scale, scale));
                     }
+
+                    // Adding 3 levels of detail
+                    const lod = new THREE.LOD();
+                    for( let i = 0; i < 3; i++ ) {   
+                        lod.addLevel( model, i * 75 );
+                    }
+
                     this.scene.add(model);
                 },
                 
@@ -820,7 +827,6 @@ export default class ThreeDigitalTwin {
                 model.scene.position.copy(targetPosition);
 
                 if(rotation) {
-                    //model.rotation.copy(new THREE.Vector3(rotation.x, rotation.y, rotation.z));
                     model.rotation.x = rotation.x;
                     model.rotation.y = rotation.y;
                     model.rotation.z = rotation.z;
@@ -828,6 +834,12 @@ export default class ThreeDigitalTwin {
 
                 if(scale) {
                     model.scene.scale.copy(new THREE.Vector3(scale, scale, scale));
+                }
+                
+                // Adding 3 levels of detail
+                const lod = new THREE.LOD();
+                for( let i = 0; i < 3; i++ ) {   
+                    lod.addLevel( model, i * 75 );
                 }
 
                 this.scene.add(model.scene);
