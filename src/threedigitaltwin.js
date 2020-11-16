@@ -5,7 +5,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 // import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
 // import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
-import { extrudeGeoJSON } from 'geometry-extrude';
+//import { extrudeGeoJSON } from 'geometry-extrude';
 import reproject from 'reproject-spherical-mercator';
 import proj4 from 'proj4';
 import { Sky } from "three/examples/jsm/objects/Sky.js";
@@ -15,6 +15,7 @@ import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
+import { Geometry } from 'three';
 
 
 CameraControls.install({ THREE: THREE });
@@ -69,13 +70,13 @@ export default class ThreeDigitalTwin {
         this.bearingAngle.start = configs.bearingAngle && configs.bearingAngle.start ? configs.bearingAngle.start : 0;
         this.bearingAngle.min = configs.bearingAngle && configs.bearingAngle.min ? configs.bearingAngle.min : 0;
         this.bearingAngle.max = configs.bearingAngle && configs.bearingAngle.max ? configs.bearingAngle.max : Math.PI / 2;
-        
+
         this.oceanVisible = configs.oceanVisible || true;
         this.axisHelper = configs.axisHelper || false;
 
         this.providerMapTile = configs.providerMapTile || null;
         this.modeMapTile = configs.modeMapTile || null;
-        
+
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.scope = null;
@@ -347,11 +348,23 @@ export default class ThreeDigitalTwin {
                 if (feature.properties.asset_type_configuration.options_altitude)
                     prop.altitude = feature.properties.asset_type_configuration.options_altitude;
 
-                if (feature.properties.asset_type_configuration.options_material_color)
-                    prop.material.color = feature.properties.asset_type_configuration.options_material_color.substring(0, 7);
+                if (feature.properties.asset_type_configuration.options_material_colorSide)
+                    prop.material.colorSide = feature.properties.asset_type_configuration.options_material_colorSide;
 
-                if (feature.properties.asset_type_configuration.options_material_opacity)
-                    prop.material.opacity = feature.properties.asset_type_configuration.options_material_opacity;
+                if (feature.properties.asset_type_configuration.options_material_colorTop)
+                    prop.material.colorTop = feature.properties.asset_type_configuration.options_material_colorTop;
+
+                if (feature.properties.asset_type_configuration.options_material_opacityTop)
+                    prop.material.opacityTop = feature.properties.asset_type_configuration.options_material_opacityTop;
+
+                if (feature.properties.asset_type_configuration.options_material_opacitySide)
+                    prop.material.opacitySide = feature.properties.asset_type_configuration.options_material_opacitySide;
+
+                if (feature.properties.asset_type_configuration.options_material_textureTop)
+                    prop.material.textureTop = feature.properties.asset_type_configuration.options_material_textureTop;
+
+                if (feature.properties.asset_type_configuration.options_material_textureSide)
+                    prop.material.textureSide = feature.properties.asset_type_configuration.options_material_textureSide;
 
                 this.loadLayer(layerCode, geojson_feature, prop, outline);
             } else {
@@ -362,69 +375,108 @@ export default class ThreeDigitalTwin {
 
     loadLayer(layerCode, geojson, properties, outline) {
         if (geojson == null || geojson.features == null) return;
-        var depth, altitude, color, opacity, texture;
+        var depth, altitude, colorTop, colorSide, opacityTop, opacitySide, texture;
 
         if (properties) {
             depth = properties && properties.depth != null && !isNaN(properties.depth) ? properties.depth : 2;
             altitude = properties && properties.altitude != null && !isNaN(properties.altitude) ? properties.altitude : 0;
-            color = properties && properties.material && properties.material.color ? properties.material.color : 'white';
-            opacity = properties && properties.material && properties.material.opacity != null ? properties.material.opacity : 1;
-            texture =  properties && properties.material && properties.material.texture != null
+            colorTop = properties && properties.material && properties.material.colorTop ? properties.material.colorTop : 'white';
+            colorSide = properties && properties.material && properties.material.colorSide ? properties.material.colorSide : 'white';
+            opacityTop = properties && properties.material && !isNaN(properties.material.opacityTop) ? properties.material.opacityTop : 1;
+            opacitySide = properties && properties.material && !isNaN(properties.material.opacitySide) ? properties.material.opacitySide : 1;
+            texture = properties && properties.material && properties.material.texture != null
                 ? new THREE.TextureLoader().load(properties.material.texture) : null;
         }
 
         // testing purposes
-        if(texture) {
+        if (texture) {
             texture.wrapS = THREE.MirroredRepeatWrapping;
             texture.wrapT = THREE.MirroredRepeatWrapping;
-            texture.repeat.set( 4, 4 );
+            texture.repeat.set(4, 4);
             console.log(texture)
         }
 
-        var material_options = {
-            color: new THREE.Color(color),
-            opacity: opacity,
+        var material_options_top = {
+            color: new THREE.Color(colorTop),
+            opacity: opacityTop,
+            transparent: true,
+            map: texture,
+        };
+
+        var material_options_side = {
+            color: new THREE.Color(colorSide),
+            opacity: opacitySide,
+            transparent: true,
             map: texture,
         };
 
         var reproject_geojson = this.convertGeoJsonToWorldUnits(geojson);
 
-        const { polygon } = extrudeGeoJSON(reproject_geojson, {
-            depth: depth,
-            simplify: 0,
-            excludeBottom: true,
-            translate: [-this.centerWorldInMeters[0], -this.centerWorldInMeters[1]]
-        });
-        const { position, normal, indices, uv } = polygon;
         var mesh = null;
-        var geometry = null;
         var material = null;
 
-        if (outline) {
+        if (outline) { //@todo: precisa de um refactoring :D
 
-            geometry = new THREE.Geometry();
+            /*
+            var geometry = new THREE.Geometry();
             for (let i = 0; i < position.length; i += 3) {
                 geometry.vertices.push(new THREE.Vector3(position[i], position[i + 1], altitude + depth));
-            }
+            }*/
             var line = new MeshLine();
-            line.setGeometry(geometry, function (p) { return p / 2; });
+            //line.setGeometry(geometry, function (p) { return p / 2; });
 
-            material = new MeshLineMaterial(material_options);
+            material = new MeshLineMaterial(material_options_top);
             mesh = new THREE.Mesh(line.geometry, material);
 
         } else {
 
-            geometry = new THREE.BoxBufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
-            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3));
-            geometry.setAttribute('uv',  new THREE.Float32BufferAttribute(uv, 3))
-            geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
-            geometry.translate(0, 0, altitude);
+            mesh = new THREE.Group();
 
-            material = new THREE.MeshPhongMaterial(material_options);
-            mesh = new THREE.Mesh(geometry, material);
+            const extrudeSettings = { depth: depth, bevelEnabled: false, bevelSegments: 1, steps: 1, bevelSize: 1, bevelThickness: 1 };
+
+            let shapes = [];
+
+            var sideMaterial = new THREE.MeshPhongMaterial(material_options_side);
+            var topMaterial = new THREE.MeshPhongMaterial(material_options_top);
+            var multMaterial = [topMaterial, sideMaterial];
+
+            reproject_geojson.features.forEach(feature => {
+                var shapeIdx = 0;
+                feature.geometry.coordinates.forEach(coordinates => {
+                    shapeIdx++;
+                    shapes[shapeIdx] = [];
+                    coordinates.forEach(element => {
+                        if (element.length > 2) {
+                            shapeIdx++;
+                            shapes[shapeIdx] = [];
+                            element.forEach(elem => {
+                                shapes[shapeIdx].push(new THREE.Vector2(elem[0], elem[1]));
+                            });
+                        } else {
+                            shapes[shapeIdx].push(new THREE.Vector2(element[0], element[1]));
+                        }
+
+                    });
+
+                });
+
+            });
+
+            shapes.forEach(shape => {
+
+                if (shape.length > 0) {
+                    let obj = new THREE.Shape(shape);
+                    let geometry = new THREE.ExtrudeBufferGeometry(obj, extrudeSettings);
+                    geometry.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], altitude);
+                    let geomShape = new THREE.Mesh(geometry, multMaterial);
+                    geometry.dispose();
+                    mesh.add(geomShape);
+                }
+
+            });
 
         }
+
         mesh.matrixAutoUpdate = false;
         mesh.receiveShadow = false;
         mesh.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
@@ -440,11 +492,6 @@ export default class ThreeDigitalTwin {
             value.push(mesh);
             this.layers.set(layerCode, value);
         }
-
-
-        geometry.dispose();
-        material.dispose();
-
         return mesh;
 
     }
@@ -763,59 +810,59 @@ export default class ThreeDigitalTwin {
         var extensionValue = modelPath.split('.').pop();
         var loader;
 
-        switch(extensionValue) {
-            case("kmz"):
+        switch (extensionValue) {
+            case ("kmz"):
                 loader = new KMZLoader();
                 break;
 
-            case("gltf"):
+            case ("gltf"):
                 loader = new GLTFLoader();
                 break;
 
-            case("obj"):
+            case ("obj"):
                 new OBJLoader2().load(modelPath,
-                    
+
                     (model) => {
-                    
-                    var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
-                    var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
 
-                    if(rotation) {
-                        model.rotation.x = rotation.x;
-                        model.rotation.y = rotation.y;
-                        model.rotation.z = rotation.z;
-                    }
+                        var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                        var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
 
-                    if(scale) {
-                        model.scale.copy(new THREE.Vector3(scale, scale, scale));
-                    }
+                        if (rotation) {
+                            model.rotation.x = rotation.x;
+                            model.rotation.y = rotation.y;
+                            model.rotation.z = rotation.z;
+                        }
 
-                    // Adding 2 levels of detail
-                    const lod = new THREE.LOD();
-                    lod.addLevel(model.scene, 0);
-                    // empty cube 
-                    const geometry = new THREE.BoxGeometry(0, 0, 0);
-                    const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
-                    const cube = new THREE.Mesh( geometry, material );
-                    lod.addLevel(cube, 1500);
-                    lod.position.copy(targetPosition);
+                        if (scale) {
+                            model.scale.copy(new THREE.Vector3(scale, scale, scale));
+                        }
 
-                    this.scene.add(lod);
-                },
-                
-                undefined,
+                        // Adding 2 levels of detail
+                        const lod = new THREE.LOD();
+                        lod.addLevel(model.scene, 0);
+                        // empty cube 
+                        const geometry = new THREE.BoxGeometry(0, 0, 0);
+                        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                        const cube = new THREE.Mesh(geometry, material);
+                        lod.addLevel(cube, 1500);
+                        lod.position.copy(targetPosition);
 
-                // onError callback
-                (error) => {
-                    console.log('Error with model', modelPath);
-                    console.log(error);
-                });
+                        this.scene.add(lod);
+                    },
+
+                    undefined,
+
+                    // onError callback
+                    (error) => {
+                        console.log('Error with model', modelPath);
+                        console.log(error);
+                    });
                 return;
 
-            case("dae"):
+            case ("dae"):
                 loader = new ColladaLoader();
                 break;
-            
+
             default:
                 break;
         }
@@ -829,30 +876,30 @@ export default class ThreeDigitalTwin {
                 var units = this.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
                 var targetPosition = new THREE.Vector3(units[0] - this.centerWorldInMeters[0], altitude || 0, -(units[1] - this.centerWorldInMeters[1]));
 
-                if(rotation) {
+                if (rotation) {
                     model.rotation.x = rotation.x;
                     model.rotation.y = rotation.y;
                     model.rotation.z = rotation.z;
                 }
 
-                if(scale) {
+                if (scale) {
                     model.scene.scale.copy(new THREE.Vector3(scale, scale, scale));
                 }
-                
+
                 // Adding 2 levels of detail
                 const lod = new THREE.LOD();
                 lod.addLevel(model.scene, 0);
                 // empty cube 
-                const geometry = new THREE.BoxGeometry( 0, 0, 0);
-                const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
-                const cube = new THREE.Mesh( geometry, material );
+                const geometry = new THREE.BoxGeometry(0, 0, 0);
+                const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                const cube = new THREE.Mesh(geometry, material);
                 lod.addLevel(cube, 1500);
                 lod.position.copy(targetPosition);
 
                 this.scene.add(lod);
             },
 
-             // onProgress callback
+            // onProgress callback
             undefined,
 
             // onError callback
@@ -861,7 +908,7 @@ export default class ThreeDigitalTwin {
                 console.log(error);
             }
         );
-            
+
     }
 
     _loadTexture(texturePath) {
