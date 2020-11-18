@@ -349,9 +349,10 @@ export default class ThreeDigitalTwin {
         var vecs2 = [];
         var shapearray = [];
 
-        for (var P of feature.geometry.coordinates[0]) {
 
-            if (feature.type === "MultiPolygon") {
+        for (var P of feature.geometry.coordinates) {
+
+            if (feature.geometry.type === "MultiPolygon") {
                 P = P[0];
             }
 
@@ -393,6 +394,7 @@ export default class ThreeDigitalTwin {
             bevelSize: 1,
             bevelThickness: 1
         };
+
 
         var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
