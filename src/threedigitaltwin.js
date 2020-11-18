@@ -15,7 +15,7 @@ import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
 import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
-import { Geometry } from 'three';
+//import { Geometry } from 'three';
 
 
 CameraControls.install({ THREE: THREE });
@@ -335,12 +335,10 @@ export default class ThreeDigitalTwin {
         if (geojson == null || geojson.features == null) return;
         var prop = properties;
 
+        geojson = this.convertGeoJsonToWorldUnits(geojson);
+
         geojson.features.forEach(feature => {
-            var geojson_feature = {
-                "type": "FeatureCollection",
-                "features": [feature],
-            };
-            if (feature.properties.asset_type_configuration) {
+            if (feature.properties && feature.properties.asset_type_configuration) {
 
                 if (feature.properties.asset_type_configuration.options_extrudeSettings_depth)
                     prop.depth = feature.properties.asset_type_configuration.options_extrudeSettings_depth;
@@ -366,15 +364,15 @@ export default class ThreeDigitalTwin {
                 if (feature.properties.asset_type_configuration.options_material_textureSide)
                     prop.material.textureSide = feature.properties.asset_type_configuration.options_material_textureSide;
 
-                this.loadLayer(layerCode, geojson_feature, prop, outline);
+                this.loadLayer(layerCode, feature, prop, outline);
             } else {
-                this.loadLayer(layerCode, geojson_feature, properties, outline);
+                this.loadLayer(layerCode, feature, properties, outline);
             }
         });
     }
 
-    loadLayer(layerCode, geojson, properties, outline) {
-        if (geojson == null || geojson.features == null) return;
+    loadLayer(layerCode, feature, properties, outline) {
+        if (feature == null) return;
         var depth, altitude, colorTop, colorSide, opacityTop, opacitySide, texture;
 
         if (properties) {
@@ -393,7 +391,6 @@ export default class ThreeDigitalTwin {
             texture.wrapS = THREE.MirroredRepeatWrapping;
             texture.wrapT = THREE.MirroredRepeatWrapping;
             texture.repeat.set(4, 4);
-            console.log(texture)
         }
 
         var material_options_top = {
@@ -409,8 +406,6 @@ export default class ThreeDigitalTwin {
             transparent: true,
             map: texture,
         };
-
-        var reproject_geojson = this.convertGeoJsonToWorldUnits(geojson);
 
         var mesh = null;
         var material = null;
@@ -434,38 +429,17 @@ export default class ThreeDigitalTwin {
 
             const extrudeSettings = { depth: depth, bevelEnabled: false, bevelSegments: 1, steps: 1, bevelSize: 1, bevelThickness: 1 };
 
-            let shapes = [];
-
             var sideMaterial = new THREE.MeshPhongMaterial(material_options_side);
             var topMaterial = new THREE.MeshPhongMaterial(material_options_top);
             var multMaterial = [topMaterial, sideMaterial];
 
-            reproject_geojson.features.forEach(feature => {
-                var shapeIdx = 0;
-                feature.geometry.coordinates.forEach(coordinates => {
-                    shapeIdx++;
-                    shapes[shapeIdx] = [];
-                    coordinates.forEach(element => {
-                        if (element.length > 2) {
-                            shapeIdx++;
-                            shapes[shapeIdx] = [];
-                            element.forEach(elem => {
-                                shapes[shapeIdx].push(new THREE.Vector2(elem[0], elem[1]));
-                            });
-                        } else {
-                            shapes[shapeIdx].push(new THREE.Vector2(element[0], element[1]));
-                        }
+            feature.geometry.coordinates.forEach(coordinates => {
 
-                    });
+                if (coordinates && coordinates.length > 0) {
 
-                });
+                    var vertices = coordinates.map(coord => new THREE.Vector2(coord[0], coord[1]));
 
-            });
-
-            shapes.forEach(shape => {
-
-                if (shape.length > 0) {
-                    let obj = new THREE.Shape(shape);
+                    let obj = new THREE.Shape(vertices);
                     let geometry = new THREE.ExtrudeBufferGeometry(obj, extrudeSettings);
                     geometry.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], altitude);
                     let geomShape = new THREE.Mesh(geometry, multMaterial);
@@ -474,6 +448,9 @@ export default class ThreeDigitalTwin {
                 }
 
             });
+
+            sideMaterial.dispose();
+            topMaterial.dispose();
 
         }
 
