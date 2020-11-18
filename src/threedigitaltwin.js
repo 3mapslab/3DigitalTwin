@@ -818,7 +818,7 @@ export default class ThreeDigitalTwin {
                         const lod = new THREE.LOD();
                         lod.addLevel(model.scene, 0);
                         // empty cube 
-                        const geometry = new THREE.BoxGeometry(0, 0, 0);
+                        const geometry = new THREE.BoxGeometry(1, 1, 1);
                         const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
                         const cube = new THREE.Mesh(geometry, material);
                         lod.addLevel(cube, 1500);
@@ -867,7 +867,7 @@ export default class ThreeDigitalTwin {
                 const lod = new THREE.LOD();
                 lod.addLevel(model.scene, 0);
                 // empty cube 
-                const geometry = new THREE.BoxGeometry(0, 0, 0);
+                const geometry = new THREE.BoxGeometry(1, 1, 1);
                 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
                 const cube = new THREE.Mesh(geometry, material);
                 lod.addLevel(cube, 1500);
