@@ -6,7 +6,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
 // import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 //import { extrudeGeoJSON } from 'geometry-extrude';
-import reproject from 'reproject-spherical-mercator';
+import { reproject } from 'reproject';
 import proj4 from 'proj4';
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { Water } from "three/examples/jsm/objects/Water.js";
@@ -15,6 +15,7 @@ import CameraControls from 'camera-controls'
 import * as TWEEN from 'es6-tween';
 //import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
+import Delaunator from 'delaunator';
 //import { Geometry } from 'three';
 
 
@@ -71,7 +72,7 @@ export default class ThreeDigitalTwin {
         this.bearingAngle.min = configs.bearingAngle && configs.bearingAngle.min ? configs.bearingAngle.min : 0;
         this.bearingAngle.max = configs.bearingAngle && configs.bearingAngle.max ? configs.bearingAngle.max : Math.PI / 2;
 
-        this.oceanVisible = configs.oceanVisible || true;
+        this.oceanVisible = configs.oceanVisible || false;
         this.axisHelper = configs.axisHelper || false;
 
         this.providerMapTile = configs.providerMapTile || null;
@@ -101,6 +102,7 @@ export default class ThreeDigitalTwin {
 
     init(canvas, axisHelper) {
 
+        this.canvas = canvas;
         this.scene = new THREE.Scene();
         //this.scene.background = new THREE.Color(0xcce0ff);
         //this.scene.fog = new THREE.Fog(0xF5F5F5, far / 4, far / 2);
@@ -118,11 +120,11 @@ export default class ThreeDigitalTwin {
         //Locks Zoom and rotation 
         this.cameraControls.verticalDragToForward = true;
         this.cameraControls.dollyToCursor = false;
-        this.cameraControls.maxPolarAngle = Math.PI / 2;
+        //this.cameraControls.maxPolarAngle = Math.PI / 2;
         this.cameraControls.maxDistance = this.zoom.max; //1KM
 
         const bb = new THREE.Box3(
-            new THREE.Vector3(-this.width / 2, 10, -this.height / 2),
+            new THREE.Vector3(-this.width / 2, -10, -this.height / 2),
             new THREE.Vector3(this.width / 2, this.cameraControls.maxDistance, this.height / 2)
         );
         this.cameraControls.setBoundary(bb);
@@ -331,24 +333,42 @@ export default class ThreeDigitalTwin {
 
     }
 
-    loadLayer(layerCode, geojson, properties) {
+    loadLayer(layerCode, geojson, properties, type) {
 
         if (geojson == null || geojson.features == null) return;
 
         var geo = this.convertGeoJsonToWorldUnits(geojson);
+        var shape = null;
 
-        for (var feature of geo.features) {
-            feature.layerCode = layerCode;
-            feature.properties = Object.assign(properties, feature.properties);
-            let shape = this.createShape(feature);
-            this.scene.add(shape);
+        switch (type) {
+            case "DEM":
+                shape = this.createDEM(geo.features);
+
+                if (shape)
+                    this.scene.add(shape);
+
+                break;
+            case "EXTRUDE":
+
+                for (var feature of geo.features) {
+                    feature.layerCode = layerCode;
+                    feature.properties = Object.assign(properties, feature.properties);
+                    shape = this.createShape(feature);
+
+                    if (shape)
+                        this.scene.add(shape);
+                }
+
+                break;
+            default:
+                console.log('default');
         }
+
     }
 
-    createShape(feature) {
+    calcVertices(feature) {
         var vecs2 = [];
-        var shapearray = [];
-
+        var vertices = [];
 
         for (var P of feature.geometry.coordinates) {
 
@@ -364,9 +384,70 @@ export default class ThreeDigitalTwin {
                 p0 = p1;
             }
 
-            shapearray.push(new THREE.Shape(vecs2));
+            vertices.push(new THREE.Shape(vecs2));
+
             vecs2 = [];
         }
+
+        return vertices;
+    }
+
+
+    createDEM(features) {
+
+        var mesh = new THREE.Group();
+        var points3d = [];
+        for (var feature of features) {
+            var coordinates = feature.geometry.coordinates;
+            points3d.push(new THREE.Vector3(coordinates[0] - this.centerWorldInMeters[0], coordinates[1] - this.centerWorldInMeters[1], - coordinates[2] * 2));
+        }
+
+        var geometry = new THREE.BufferGeometry().setFromPoints(points3d);
+
+        var cloud = new THREE.Points(
+            geometry,
+            new THREE.PointsMaterial({ color: 0x99ccff, size: 2 })
+        );
+
+        cloud.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
+
+        var indexDelaunay = Delaunator.from(
+            points3d.map(v => {
+                return [v.x, v.y];
+            })
+        );
+
+        var meshIndex = []; // delaunay index => three.js index
+        for (let i = 0; i < indexDelaunay.triangles.length; i++) {
+            meshIndex.push(indexDelaunay.triangles[i]);
+        }
+
+        geometry.setIndex(meshIndex); // add three.js index to the existing geometry
+
+        var plane = new THREE.Mesh(
+            geometry, // re-use the existing geometry
+            new THREE.MeshPhongMaterial({ color: "blue", side: THREE.BackSide, wireframe: false })
+        );
+
+        plane.rotateOnAxis(new THREE.Vector3(1, 0, 0), - Math.PI / 2);
+        plane.geometry.verticesNeedUpdate = true;
+        plane.geometry.normalsNeedUpdate = true;
+        plane.geometry.computeBoundingSphere();
+        plane.geometry.computeFaceNormals();
+        plane.geometry.computeVertexNormals();
+        plane.matrixAutoUpdate = false;
+        plane.receiveShadow = false;
+        plane.updateMatrix();
+
+        mesh.add(cloud);
+        mesh.add(plane);
+        return mesh;
+
+    }
+
+    createShape(feature) {
+
+        var shapearray = this.calcVertices(feature);
 
         if (feature.properties.texture) {
             feature.properties.texture.wrapS = THREE.MirroredRepeatWrapping;
@@ -569,7 +650,7 @@ export default class ThreeDigitalTwin {
     }
 
     convertGeoJsonToWorldUnits(geojson) {
-        return reproject(geojson);
+        return reproject(geojson, proj4.WGS84, proj4('EPSG:3785'));
     }
 
     convertCoordinatesToUnits(lng, lat) {
@@ -651,10 +732,6 @@ export default class ThreeDigitalTwin {
                 fog: this.scene.fog !== undefined
             }
             );
-            this.ocean.material.depthWrite = false;
-            this.ocean.material.polygonOffset = true;
-            this.ocean.material.polygonOffsetFactor = 1;
-            this.ocean.material.polygonOffsetUnits = 16;
             this.ocean.position.set(0, 0, 0);
             this.ocean.rotateX(-Math.PI / 2);
 
