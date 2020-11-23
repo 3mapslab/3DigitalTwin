@@ -796,7 +796,7 @@ export default class ThreeDigitalTwin {
      * @param {number} scale - Scale of the object
      * @param {number} altitude - Altitude of the object
      */
-    _loadModel(modelPath, coordinates, rotation, scale, altitude) {
+    _loadModel(modelPath, coordinates, rotation, scale, altitude, lod_distance) {
 
         var extensionValue = modelPath.split('.').pop();
         var loader;
@@ -832,10 +832,11 @@ export default class ThreeDigitalTwin {
                         const lod = new THREE.LOD();
                         lod.addLevel(model.scene, 0);
                         // empty cube 
-                        const geometry = new THREE.BoxGeometry(1, 1, 1);
+                        const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
                         const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
                         const cube = new THREE.Mesh(geometry, material);
-                        lod.addLevel(cube, 1500);
+                        if(lod_distance=="low") lod.addLevel(cube, 500);
+                        else lod.addLevel(cube, 1500);
                         lod.position.copy(targetPosition);
 
                         this.scene.add(lod);
@@ -881,10 +882,11 @@ export default class ThreeDigitalTwin {
                 const lod = new THREE.LOD();
                 lod.addLevel(model.scene, 0);
                 // empty cube 
-                const geometry = new THREE.BoxGeometry(1, 1, 1);
+                const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
                 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
                 const cube = new THREE.Mesh(geometry, material);
-                lod.addLevel(cube, 1500);
+                if(lod_distance=="low") lod.addLevel(cube, 500);
+                else lod.addLevel(cube, 1500);
                 lod.position.copy(targetPosition);
 
                 this.scene.add(lod);
