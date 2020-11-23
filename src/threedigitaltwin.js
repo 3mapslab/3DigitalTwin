@@ -143,9 +143,7 @@ export default class ThreeDigitalTwin {
 
         this._initAllTextures();
         this._initAllModels();
-        if (this.oceanVisible) {
-            this._initOcean();
-        }
+        /*if (this.oceanVisible) */this._initOcean();
         this._initSkyBox();
         this._initPhysicWorld();
         this._initAllTiles();
