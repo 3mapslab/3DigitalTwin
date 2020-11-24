@@ -350,12 +350,27 @@ export default class ThreeDigitalTwin {
 
                 for (var feature of geo.features) {
                     feature.layerCode = layerCode;
-                    feature.properties = Object.assign(properties, feature.properties);
+                    feature.properties = Object.assign({}, properties, feature.properties);
+
                     shape = this.createShape(feature);
 
-                    if (shape)
+                    if (shape) {
                         this.scene.add(shape);
+
+                        if (layerCode) {
+                            var values = [];
+                            if (this.layers.get(layerCode)) {
+                                values = this.layers.get(layerCode);
+                            }
+                            values.push(shape);
+                            this.layers.set(layerCode, values);
+                        }
+
+                        shape.geometry.dispose();
+                    }
                 }
+
+                this.dispatch('layerloaded', layerCode);
 
                 break;
             default:
@@ -447,22 +462,34 @@ export default class ThreeDigitalTwin {
 
         var shapearray = this.calcVertices(feature);
 
-        if (feature.properties.texture) {
-            feature.properties.texture.wrapS = THREE.MirroredRepeatWrapping;
-            feature.properties.texture.wrapT = THREE.MirroredRepeatWrapping;
-            feature.properties.texture.repeat.set(4, 4);
+        if (feature.properties.material.textureTop) {
+            feature.properties.material.textureTop.wrapS = THREE.MirroredRepeatWrapping;
+            feature.properties.material.textureTop.wrapT = THREE.MirroredRepeatWrapping;
+            feature.properties.material.textureTop.repeat.set(4, 4);
+        }
+
+        if (feature.properties.material.textureSide) {
+            feature.properties.material.textureSide.wrapS = THREE.MirroredRepeatWrapping;
+            feature.properties.material.textureSide.wrapT = THREE.MirroredRepeatWrapping;
+            feature.properties.material.textureSide.repeat.set(4, 4);
         }
 
         var material = [new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorTop),
             opacity: feature.properties.material.opacityTop,
             transparent: true,
-            map: feature.properties.texture || null,
+            map: feature.properties.material.textureTop || null,
+            polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
+            polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1 // fix overlapping problems
         }), new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorSide),
             opacity: feature.properties.material.opacitySide,
             transparent: true,
-            map: feature.properties.texture || null,
+            map: feature.properties.material.textureSide || null,
+            polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
+            polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
         })]
 
         var extrudeSettings = {
@@ -489,17 +516,21 @@ export default class ThreeDigitalTwin {
         return mesh;
     }
 
+
     removeLayer(layerCode) {
         if (layerCode) {
             var meshes = this.layers.get(layerCode);
 
-            meshes.forEach(mesh => {
-                if (mesh && mesh.geometry) {
-                    mesh.geometry.dispose();
-                    this.scene.remove(mesh);
-                }
-            });
-            this.layers.delete(layerCode);
+            if (meshes && meshes.length > 0) {
+                meshes.forEach(mesh => {
+                    if (mesh && mesh.geometry) {
+                        mesh.geometry.dispose();
+                        this.scene.remove(mesh);
+                    }
+                });
+                this.layers.delete(layerCode);
+            }
+
         }
     }
 
@@ -833,7 +864,7 @@ export default class ThreeDigitalTwin {
                         const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
                         const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
                         const cube = new THREE.Mesh(geometry, material);
-                        if(lod_distance=="low") lod.addLevel(cube, 500);
+                        if (lod_distance == "low") lod.addLevel(cube, 500);
                         else lod.addLevel(cube, 1500);
                         lod.position.copy(targetPosition);
 
@@ -883,7 +914,7 @@ export default class ThreeDigitalTwin {
                 const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
                 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
                 const cube = new THREE.Mesh(geometry, material);
-                if(lod_distance=="low") lod.addLevel(cube, 500);
+                if (lod_distance == "low") lod.addLevel(cube, 500);
                 else lod.addLevel(cube, 1500);
                 lod.position.copy(targetPosition);
 
