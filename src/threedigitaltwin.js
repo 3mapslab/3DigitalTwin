@@ -353,8 +353,9 @@ export default class ThreeDigitalTwin {
                     feature.properties = Object.assign(properties, feature.properties);
                     shape = this.createShape(feature);
 
-                    if (shape)
+                    if (shape) {
                         this.scene.add(shape);
+                    }
                 }
 
                 break;
@@ -446,23 +447,24 @@ export default class ThreeDigitalTwin {
     createShape(feature) {
 
         var shapearray = this.calcVertices(feature);
+        var texture;
 
-        if (feature.properties.texture) {
-            feature.properties.texture.wrapS = THREE.MirroredRepeatWrapping;
-            feature.properties.texture.wrapT = THREE.MirroredRepeatWrapping;
-            feature.properties.texture.repeat.set(4, 4);
+        if (feature.properties.material.texture) {
+            texture = new THREE.TextureLoader().load(feature.properties.material.texture);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
         }
 
         var material = [new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorTop),
             opacity: feature.properties.material.opacityTop,
             transparent: true,
-            map: feature.properties.texture || null,
+            map: texture || null,
         }), new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorSide),
             opacity: feature.properties.material.opacitySide,
             transparent: true,
-            map: feature.properties.texture || null,
+            map: texture || null,
         })]
 
         var extrudeSettings = {
