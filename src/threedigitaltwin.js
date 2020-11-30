@@ -462,31 +462,36 @@ export default class ThreeDigitalTwin {
 
         var shapearray = this.calcVertices(feature);
 
+        var textureTop;
+        var textureSide;
+
         if (feature.properties.material.textureTop) {
-            feature.properties.material.textureTop.wrapS = THREE.MirroredRepeatWrapping;
-            feature.properties.material.textureTop.wrapT = THREE.MirroredRepeatWrapping;
-            feature.properties.material.textureTop.repeat.set(4, 4);
+            textureTop = new THREE.TextureLoader().load(feature.properties.material.textureTop) || null;
+            textureTop.wrapS = THREE.RepeatWrapping;
+            textureTop.wrapT = THREE.RepeatWrapping;
+            textureTop.repeat.set(4, 4);
         }
 
         if (feature.properties.material.textureSide) {
-            feature.properties.material.textureSide.wrapS = THREE.MirroredRepeatWrapping;
-            feature.properties.material.textureSide.wrapT = THREE.MirroredRepeatWrapping;
-            feature.properties.material.textureSide.repeat.set(4, 4);
+            textureSide = new THREE.TextureLoader().load(feature.properties.material.textureSide) || null;
+            textureSide.wrapS = THREE.RepeatWrapping;
+            textureSide.wrapT = THREE.RepeatWrapping;
+            textureSide.repeat.set(1, 1);
         }
 
         var material = [new THREE.MeshPhongMaterial({
-            color: new THREE.Color(feature.properties.material.colorTop),
+            color: new THREE.Color(feature.properties.material.colorTop) || null,
             opacity: feature.properties.material.opacityTop,
             transparent: true,
-            map: feature.properties.material.textureTop || null,
+            map: textureTop || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
             polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1 // fix overlapping problems
         }), new THREE.MeshPhongMaterial({
-            color: new THREE.Color(feature.properties.material.colorSide),
+            color: new THREE.Color(feature.properties.material.colorSide) || null,
             opacity: feature.properties.material.opacitySide,
             transparent: true,
-            map: feature.properties.material.textureSide || null,
+            map: textureSide || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
             polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
