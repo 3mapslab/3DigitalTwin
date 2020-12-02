@@ -388,7 +388,6 @@ export default class ThreeDigitalTwin {
             if (feature.geometry.type === "MultiPolygon") {
                 P = P[0];
             }
-
             var p0 = new THREE.Vector2(P[0][0], P[0][1]);
             for (var i = 1; i < P.length; ++i) {
 
@@ -396,9 +395,7 @@ export default class ThreeDigitalTwin {
                 vecs2.push(p0, p1);
                 p0 = p1;
             }
-
             vertices.push(new THREE.Shape(vecs2));
-
             vecs2 = [];
         }
 
@@ -458,25 +455,35 @@ export default class ThreeDigitalTwin {
 
     }
 
+    //1- Buildings 2- Warehouses 3- Roads 4- Gardens 5- Parking slots
+    findBestResolutionToTexture(){
+
+    }
+
+    
     createShape(feature) {
 
         var shapearray = this.calcVertices(feature);
-
         var textureTop;
         var textureSide;
+
+        console.log("feature",feature);
+       // var repeatValue = this.findBestResolutionToTexture(feature);
 
         if (feature.properties.material.textureTop) {
             textureTop = new THREE.TextureLoader().load(feature.properties.material.textureTop) || null;
             textureTop.wrapS = THREE.RepeatWrapping;
             textureTop.wrapT = THREE.RepeatWrapping;
-            textureTop.repeat.set(4, 4);
+            textureTop.repeat.set(0.1, 0.1);
         }
 
         if (feature.properties.material.textureSide) {
+            
             textureSide = new THREE.TextureLoader().load(feature.properties.material.textureSide) || null;
+            console.log("texture",textureSide)
             textureSide.wrapS = THREE.RepeatWrapping;
             textureSide.wrapT = THREE.RepeatWrapping;
-            textureSide.repeat.set(1, 1);
+            textureSide.repeat.set(0.1, 0.1);
         }
 
         var material = [new THREE.MeshPhongMaterial({
@@ -501,8 +508,8 @@ export default class ThreeDigitalTwin {
             depth: feature.properties.depth,
             bevelEnabled: false,
             bevelSegments: 1,
-            steps: 1,
-            bevelSize: 1,
+            steps: 10,
+            bevelSize: 0,
             bevelThickness: 1
         };
 
@@ -1057,6 +1064,10 @@ export default class ThreeDigitalTwin {
         }
     }
 
+    clear() {
+        var context = this.canvas.getContext("2d");
+        context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
 
     findObjectThroughUUID(object, objects, otherObjects, anotherObjects) {
         var foundElement = false;
