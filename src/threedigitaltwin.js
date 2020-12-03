@@ -455,35 +455,29 @@ export default class ThreeDigitalTwin {
 
     }
 
-    //1- Buildings 2- Warehouses 3- Roads 4- Gardens 5- Parking slots
-    findBestResolutionToTexture(){
-
-    }
-
-    
+    //1- Buildings 2- Warehouses 3- Roads 4- Gardens 5- Parking slots 
     createShape(feature) {
 
         var shapearray = this.calcVertices(feature);
         var textureTop;
         var textureSide;
 
-        console.log("feature",feature);
-       // var repeatValue = this.findBestResolutionToTexture(feature);
 
         if (feature.properties.material.textureTop) {
             textureTop = new THREE.TextureLoader().load(feature.properties.material.textureTop) || null;
             textureTop.wrapS = THREE.RepeatWrapping;
             textureTop.wrapT = THREE.RepeatWrapping;
+            textureTop.flipY = false;
             textureTop.repeat.set(0.1, 0.1);
         }
 
         if (feature.properties.material.textureSide) {
-            
+
             textureSide = new THREE.TextureLoader().load(feature.properties.material.textureSide) || null;
-            console.log("texture",textureSide)
             textureSide.wrapS = THREE.RepeatWrapping;
             textureSide.wrapT = THREE.RepeatWrapping;
-            textureSide.repeat.set(0.1, 0.1);
+            textureSide.flipY = false;
+            textureSide.repeat.set(0.25, 0.25);
         }
 
         var material = [new THREE.MeshPhongMaterial({
@@ -508,13 +502,12 @@ export default class ThreeDigitalTwin {
             depth: feature.properties.depth,
             bevelEnabled: false,
             bevelSegments: 1,
-            steps: 10,
+            steps: 5,
             bevelSize: 0,
             bevelThickness: 1
         };
 
-
-        var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
+        var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);        
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
         var mesh = new THREE.Mesh(shape3D, material);
 
