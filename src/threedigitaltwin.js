@@ -462,24 +462,19 @@ export default class ThreeDigitalTwin {
         var textureTop;
         var textureSide;
 
-
-
-
         if (feature.properties.material.textureTop) {
             textureTop = new THREE.TextureLoader().load(feature.properties.material.textureTop) || null;
             textureTop.wrapS = THREE.RepeatWrapping;
             textureTop.wrapT = THREE.RepeatWrapping;
             textureTop.flipY = false;
-            textureTop.repeat.set(0.1, 0.1);
         }
 
         if (feature.properties.material.textureSide) {
-
             textureSide = new THREE.TextureLoader().load(feature.properties.material.textureSide) || null;
             textureSide.wrapS = THREE.RepeatWrapping;
             textureSide.wrapT = THREE.RepeatWrapping;
             textureSide.flipY = false;
-            textureSide.repeat.set(0.1, 0.25);
+            console.log("widtdh",textureSide.image);
         }
 
         var material = [new THREE.MeshPhongMaterial({
@@ -513,15 +508,27 @@ export default class ThreeDigitalTwin {
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
         var mesh = new THREE.Mesh(shape3D, material);
 
-        
-        if (feature.properties.material.textureSide ) {
+
+        if (feature.properties.material.textureSide) {
             mesh.geometry.computeBoundingBox();
             let max = mesh.geometry.boundingBox.max;
             let min = mesh.geometry.boundingBox.min;
             let height = max.z - min.z;
             let width = max.x - min.x;
-            console.log("max",max,min)
-            mesh.material[1].map.repeat.set(width / 256, height / 256);
+
+            let repeatValX = width / 256;
+            let repeatValY = height / 256;
+            if (repeatValX < 0.1) {
+                repeatValX *= 10;
+            } else if (repeatValX > 0.45) {
+                repeatValX /= 2;
+            }
+            if (repeatValY < 0.1) {
+                repeatValY *= 10;
+            }
+
+            console.log("repeat", repeatValX, repeatValY)
+            mesh.material[1].map.repeat.set(repeatValX, repeatValY);
         }
 
         if (feature.properties.material.textureTop) {
@@ -530,7 +537,18 @@ export default class ThreeDigitalTwin {
             let min = mesh.geometry.boundingBox.min;
             let height = max.y - min.y;
             let width = max.x - min.x;
-            mesh.material[0].map.repeat.set(width / 256, height / 256);
+
+            let repeatValX = width / 256;
+            let repeatValY = height /  256;
+            if (repeatValX < 0.1) {
+                repeatValX *= 10;
+            } else if (repeatValX > 0.45) {
+                repeatValX /= 2;
+            }
+            if (repeatValY < 0.1) {
+                repeatValY *= 10;
+            }
+            mesh.material[0].map.repeat.set(repeatValX, repeatValY);
         }
 
 
