@@ -463,6 +463,8 @@ export default class ThreeDigitalTwin {
         var textureSide;
 
 
+
+
         if (feature.properties.material.textureTop) {
             textureTop = new THREE.TextureLoader().load(feature.properties.material.textureTop) || null;
             textureTop.wrapS = THREE.RepeatWrapping;
@@ -477,7 +479,7 @@ export default class ThreeDigitalTwin {
             textureSide.wrapS = THREE.RepeatWrapping;
             textureSide.wrapT = THREE.RepeatWrapping;
             textureSide.flipY = false;
-            textureSide.repeat.set(0.25, 0.25);
+            textureSide.repeat.set(0.1, 0.25);
         }
 
         var material = [new THREE.MeshPhongMaterial({
@@ -507,9 +509,30 @@ export default class ThreeDigitalTwin {
             bevelThickness: 1
         };
 
-        var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);        
+        var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
         var mesh = new THREE.Mesh(shape3D, material);
+
+        
+        if (feature.properties.material.textureSide ) {
+            mesh.geometry.computeBoundingBox();
+            let max = mesh.geometry.boundingBox.max;
+            let min = mesh.geometry.boundingBox.min;
+            let height = max.z - min.z;
+            let width = max.x - min.x;
+            console.log("max",max,min)
+            mesh.material[1].map.repeat.set(width / 256, height / 256);
+        }
+
+        if (feature.properties.material.textureTop) {
+            mesh.geometry.computeBoundingBox();
+            let max = mesh.geometry.boundingBox.max;
+            let min = mesh.geometry.boundingBox.min;
+            let height = max.y - min.y;
+            let width = max.x - min.x;
+            mesh.material[0].map.repeat.set(width / 256, height / 256);
+        }
+
 
         mesh.matrixAutoUpdate = false;
         mesh.receiveShadow = false;
