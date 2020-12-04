@@ -474,7 +474,6 @@ export default class ThreeDigitalTwin {
             textureSide.wrapS = THREE.RepeatWrapping;
             textureSide.wrapT = THREE.RepeatWrapping;
             textureSide.flipY = false;
-            console.log("widtdh",textureSide.image);
         }
 
         var material = [new THREE.MeshPhongMaterial({
@@ -527,7 +526,6 @@ export default class ThreeDigitalTwin {
                 repeatValY *= 10;
             }
 
-            console.log("repeat", repeatValX, repeatValY)
             mesh.material[1].map.repeat.set(repeatValX, repeatValY);
         }
 
