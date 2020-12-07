@@ -515,8 +515,8 @@ export default class ThreeDigitalTwin {
             let height = max.z - min.z;
             let width = max.x - min.x;
 
-            let repeatValX = width / 256;
-            let repeatValY = height / 256;
+            let repeatValX = width / feature.properties.material.textureSizeSide;
+            let repeatValY = height / feature.properties.material.textureSizeSide;
             if (repeatValX < 0.1) {
                 repeatValX *= 10;
             } else if (repeatValX > 0.45) {
@@ -536,8 +536,8 @@ export default class ThreeDigitalTwin {
             let height = max.y - min.y;
             let width = max.x - min.x;
 
-            let repeatValX = width / 256;
-            let repeatValY = height /  256;
+            let repeatValX = width / feature.properties.material.textureSizeTop;
+            let repeatValY = height /  feature.properties.material.textureSizeTop;
             if (repeatValX < 0.1) {
                 repeatValX *= 10;
             } else if (repeatValX > 0.45) {
