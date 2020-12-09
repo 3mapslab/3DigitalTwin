@@ -16,6 +16,7 @@ import * as TWEEN from 'es6-tween';
 //import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
 import Delaunator from 'delaunator';
+import turf from 'turf';
 //import { Geometry } from 'three';
 
 
@@ -139,7 +140,7 @@ export default class ThreeDigitalTwin {
 
 
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
-        canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
+        // canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
 
         this._initAllTextures();
         this._initAllModels();
@@ -331,14 +332,18 @@ export default class ThreeDigitalTwin {
 
     }
 
-    loadLayer(layerCode, geojson, properties, type) {
+    async loadLayer(layerCode, geojson, properties, type) {
 
         if (geojson == null || geojson.features == null) return;
 
         var geo = this.convertGeoJsonToWorldUnits(geojson);
         var shape = null;
+        var model = null;
+        var values;
+        var feature;
 
         switch (type) {
+
             case "DEM":
                 shape = this.createDEM(geo.features);
 
@@ -348,7 +353,7 @@ export default class ThreeDigitalTwin {
                 break;
             case "EXTRUDE":
 
-                for (var feature of geo.features) {
+                for (feature of geo.features) {
                     feature.layerCode = layerCode;
                     feature.properties = Object.assign({}, properties, feature.properties);
 
@@ -358,7 +363,7 @@ export default class ThreeDigitalTwin {
                         this.scene.add(shape);
 
                         if (layerCode) {
-                            var values = [];
+                            values = [];
                             if (this.layers.get(layerCode)) {
                                 values = this.layers.get(layerCode);
                             }
@@ -367,6 +372,33 @@ export default class ThreeDigitalTwin {
                         }
 
                         shape.geometry.dispose();
+                    }
+                }
+
+                this.dispatch('layerloaded', layerCode);
+
+                break;
+            case "MODEL":
+
+                for (feature of geo.features) {
+                    feature.layerCode = layerCode;
+                    feature.properties = Object.assign({}, properties, feature.properties);
+
+                    model = await this.createModel(feature);
+
+                    if (model) {
+                        this.scene.add(model);
+
+                        if (layerCode) {
+                            values = [];
+                            if (this.layers.get(layerCode)) {
+                                values = this.layers.get(layerCode);
+                            }
+                            values.push(model);
+                            this.layers.set(layerCode, values);
+                        }
+
+                        model.geometry.dispose();
                     }
                 }
 
@@ -537,7 +569,7 @@ export default class ThreeDigitalTwin {
             let width = max.x - min.x;
 
             let repeatValX = width / feature.properties.material.textureSizeTop;
-            let repeatValY = height /  feature.properties.material.textureSizeTop;
+            let repeatValY = height / feature.properties.material.textureSizeTop;
             if (repeatValX < 0.1) {
                 repeatValX *= 10;
             } else if (repeatValX > 0.45) {
@@ -559,6 +591,122 @@ export default class ThreeDigitalTwin {
 
         return mesh;
     }
+
+    async createModel(feature) {
+
+        var textureTop;
+        var textureSide;
+
+        if (feature.properties.material.textureTop) {
+            textureTop = new THREE.TextureLoader().load(feature.properties.material.textureTop) || null;
+            textureTop.wrapS = THREE.RepeatWrapping;
+            textureTop.wrapT = THREE.RepeatWrapping;
+            textureTop.flipY = false;
+        }
+
+        if (feature.properties.material.textureSide) {
+            textureSide = new THREE.TextureLoader().load(feature.properties.material.textureSide) || null;
+            textureSide.wrapS = THREE.RepeatWrapping;
+            textureSide.wrapT = THREE.RepeatWrapping;
+            textureSide.flipY = false;
+        }
+
+        var material = [new THREE.MeshPhongMaterial({
+            color: new THREE.Color(feature.properties.material.colorTop) || null,
+            opacity: feature.properties.material.opacityTop,
+            transparent: true,
+            map: textureTop || null,
+            polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
+            polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1 // fix overlapping problems
+        }), new THREE.MeshPhongMaterial({
+            color: new THREE.Color(feature.properties.material.colorSide) || null,
+            opacity: feature.properties.material.opacitySide,
+            transparent: true,
+            map: textureSide || null,
+            polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
+            polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
+        })]
+
+        var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
+        var model;
+        var mesh;
+        await this.loadGeometry(feature.properties.model).then((geometry) => {
+            model = geometry;
+
+            mesh = new THREE.Mesh(model, material);
+            mesh.position.set(centroid.geometry.coordinates[0] - this.centerWorldInMeters[0],feature.properties.altitude,-(centroid.geometry.coordinates[1] - this.centerWorldInMeters[1]));
+
+            if (feature.properties.material.textureSide) {
+                mesh.geometry.computeBoundingBox();
+                let max = mesh.geometry.boundingBox.max;
+                let min = mesh.geometry.boundingBox.min;
+                let height = max.z - min.z;
+                let width = max.x - min.x;
+
+                let repeatValX = width / feature.properties.material.textureSizeSide;
+                let repeatValY = height / feature.properties.material.textureSizeSide;
+                if (repeatValX < 0.1) {
+                    repeatValX *= 10;
+                } else if (repeatValX > 0.45) {
+                    repeatValX /= 2;
+                }
+                if (repeatValY < 0.1) {
+                    repeatValY *= 10;
+                }
+
+                mesh.material[1].map.repeat.set(repeatValX, repeatValY);
+            }
+
+            if (feature.properties.material.textureTop) {
+                mesh.geometry.computeBoundingBox();
+                let max = mesh.geometry.boundingBox.max;
+                let min = mesh.geometry.boundingBox.min;
+                let height = max.y - min.y;
+                let width = max.x - min.x;
+
+                let repeatValX = width / feature.properties.material.textureSizeTop;
+                let repeatValY = height / feature.properties.material.textureSizeTop;
+                if (repeatValX < 0.1) {
+                    repeatValX *= 10;
+                } else if (repeatValX > 0.45) {
+                    repeatValX /= 2;
+                }
+                if (repeatValY < 0.1) {
+                    repeatValY *= 10;
+                }
+                mesh.material[0].map.repeat.set(repeatValX, repeatValY);
+            }
+
+            mesh.matrixAutoUpdate = false;
+            mesh.receiveShadow = false;
+            mesh.updateMatrix();
+            model.dispose();
+
+        });
+
+        return mesh;
+    }
+
+    loadGeometry(objectPath) {
+        return new Promise((resolve) => {
+            new THREE.BufferGeometryLoader().load(
+                objectPath,
+
+                // onLoad callback
+                (geometry) => {
+                    resolve(geometry);
+                },
+
+                // onError callback
+                function (err) {
+                    console.log("An error happened", err);
+                }
+            );
+        });
+    }
+
 
 
     removeLayer(layerCode) {
@@ -1080,21 +1228,21 @@ export default class ThreeDigitalTwin {
         return mesh;
     }
 
-    onDocumentMouseClick(event) {
-        event.preventDefault();
-        this.mouse.x = (event.offsetX / window.innerWidth) * 2 - 1;
-        this.mouse.y = - (event.offsetY / window.innerHeight) * 2 + 1;
-        // find intersections
-        var params = { Mesh: {}, Line: { threshold: 50 }, LOD: {}, Points: { threshold: 5 }, Sprite: {} };
-        this.raycaster.params = params;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        var intersects = this.raycaster.intersectObjects(this.scene.children);
-
-        if (intersects.length > 0) {
-            this.dispatch('intersectObject', intersects[0].object);
-
-        }
-    }
+    /* onDocumentMouseClick(event) {
+         event.preventDefault();
+         this.mouse.x = (event.offsetX / window.innerWidth) * 2 - 1;
+         this.mouse.y = - (event.offsetY / window.innerHeight) * 2 + 1;
+         // find intersections
+         var params = { Mesh: {}, Line: { threshold: 50 }, LOD: {}, Points: { threshold: 5 }, Sprite: {} };
+         this.raycaster.params = params;
+         this.raycaster.setFromCamera(this.mouse, this.camera);
+         var intersects = this.raycaster.intersectObjects(this.scene.children);
+ 
+         if (intersects.length > 0) {
+             this.dispatch('intersectObject', intersects[0].object);
+ 
+         }
+     }*/
 
     clear() {
         var context = this.canvas.getContext("2d");
