@@ -621,14 +621,24 @@ export default class ThreeDigitalTwin {
             polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
         })]
 
-        var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
         var model;
         var mesh;
+        var coordX;
+        var coordY;
+        if (feature.geometry.type != "Point") {
+            var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
+            coordX = centroid.geometry.coordinates[0];
+            coordY = centroid.geometry.coordinates[1];
+        } else {
+            coordX = feature.geometry.coordinates[0];
+            coordY = feature.geometry.coordinates[1];
+        }
+
         await this.loadGeometry(feature.properties.model).then((geometry) => {
             model = geometry;
 
             mesh = new THREE.Mesh(model, material);
-            mesh.position.set(centroid.geometry.coordinates[0] - this.centerWorldInMeters[0], feature.properties.altitude, -(centroid.geometry.coordinates[1] - this.centerWorldInMeters[1]));
+            mesh.position.set(coordX - this.centerWorldInMeters[0], feature.properties.altitude, -(coordY - this.centerWorldInMeters[1]));
 
             if (textureTop) {
                 this.adjustTextureTopRepeat(mesh, feature.properties.material.textureSizeTop);
@@ -649,18 +659,28 @@ export default class ThreeDigitalTwin {
     }
 
     async createModelAndMTL(feature) {
-        var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
-        var mesh;
-        await this.loadOBJAndMTL(feature.properties.model,feature.properties.modelMTL).then((object) => {
+        var coordX;
+        var coordY;
+        if (feature.geometry.type != "Point") {
+            var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
+            coordX = centroid.geometry.coordinates[0];
+            coordY = centroid.geometry.coordinates[1];
+        } else {
+            coordX = feature.geometry.coordinates[0];
+            coordY = feature.geometry.coordinates[1];
+        }
 
-            object.position.set(centroid.geometry.coordinates[0] - this.centerWorldInMeters[0], feature.properties.altitude, -(centroid.geometry.coordinates[1] - this.centerWorldInMeters[1]));
+        var mesh;
+        await this.loadOBJAndMTL(feature.properties.model, feature.properties.modelMTL).then((object) => {
+
+            object.position.set(coordX - this.centerWorldInMeters[0], feature.properties.altitude, -(coordY - this.centerWorldInMeters[1]));
 
             object.matrixAutoUpdate = false;
             object.receiveShadow = false;
             object.updateMatrix();
 
             mesh = object;
-            console.log("mesh",mesh);
+            console.log("mesh", mesh);
         });
 
         return mesh;
