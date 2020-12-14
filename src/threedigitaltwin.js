@@ -444,16 +444,34 @@ export default class ThreeDigitalTwin {
         for (var P of feature.geometry.coordinates) {
 
             if (feature.geometry.type === "MultiPolygon") {
-                P = P[0];
+                var outerP = P[0];
             }
-            var p0 = new THREE.Vector2(P[0][0], P[0][1]);
-            for (var i = 1; i < P.length; ++i) {
 
-                var p1 = new THREE.Vector2(P[i][0], P[i][1]);
+            var p0 = new THREE.Vector2(outerP[0][0], outerP[0][1]);
+            for (let i = 1; i < outerP.length; ++i) {
+
+                var p1 = new THREE.Vector2(outerP[i][0], outerP[i][1]);
                 vecs2.push(p0, p1);
                 p0 = p1;
             }
-            vertices.push(new THREE.Shape(vecs2));
+
+            var shape = new THREE.Shape(vecs2)
+
+            // iterate through holes
+            for (let i = 1; i < P.length; ++i) {
+
+                let hole = P[i];
+                let points = [];
+                
+                for(let j = 0; j < hole.length; ++j) {
+                    points.push(new THREE.Vector2(hole[j][0], hole[j][1]))
+                }
+                
+                let path = new THREE.Path(points);
+                shape.holes.push(path);
+            }
+            
+            vertices.push(shape);
             vecs2 = [];
         }
 
