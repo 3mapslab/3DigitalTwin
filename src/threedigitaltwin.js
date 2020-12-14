@@ -443,6 +443,8 @@ export default class ThreeDigitalTwin {
 
         for (var P of feature.geometry.coordinates) {
 
+            outerP = P;
+            
             if (feature.geometry.type === "MultiPolygon") {
                 var outerP = P[0];
             }
