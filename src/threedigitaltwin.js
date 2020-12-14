@@ -444,7 +444,7 @@ export default class ThreeDigitalTwin {
         for (var P of feature.geometry.coordinates) {
 
             outerP = P;
-            
+
             if (feature.geometry.type === "MultiPolygon") {
                 var outerP = P[0];
             }
@@ -464,15 +464,15 @@ export default class ThreeDigitalTwin {
 
                 let hole = P[i];
                 let points = [];
-                
-                for(let j = 0; j < hole.length; ++j) {
+
+                for (let j = 0; j < hole.length; ++j) {
                     points.push(new THREE.Vector2(hole[j][0], hole[j][1]))
                 }
-                
+
                 let path = new THREE.Path(points);
                 shape.holes.push(path);
             }
-            
+
             vertices.push(shape);
             vecs2 = [];
         }
@@ -700,7 +700,6 @@ export default class ThreeDigitalTwin {
             object.updateMatrix();
 
             mesh = object;
-            console.log("mesh", mesh);
         });
 
         return mesh;
@@ -753,7 +752,6 @@ export default class ThreeDigitalTwin {
 
     loadOBJAndMTL(objPath, mtlPath) {
         return new Promise((resolve) => {
-            console.log("m", mtlPath);
             var mtlL = new MTLLoader();
             mtlL.load(mtlPath, (materials) => {
                 materials.preload();
@@ -786,12 +784,15 @@ export default class ThreeDigitalTwin {
 
     removeLayer(layerCode) {
         if (layerCode) {
+            console.log("entrou", layerCode);
             var meshes = this.layers.get(layerCode);
-
+            console.log("mesg", meshes);
             if (meshes && meshes.length > 0) {
                 meshes.forEach(mesh => {
                     if (mesh && mesh.geometry) {
                         mesh.geometry.dispose();
+                        this.scene.remove(mesh);
+                    } else if (mesh) {
                         this.scene.remove(mesh);
                     }
                 });
