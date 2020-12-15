@@ -140,7 +140,7 @@ export default class ThreeDigitalTwin {
 
 
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
-        // canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
+        canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
 
         this._initAllTextures();
         this._initAllModels();
@@ -1304,7 +1304,7 @@ export default class ThreeDigitalTwin {
         return mesh;
     }
 
-    /* onDocumentMouseClick(event) {
+    onDocumentMouseClick(event) {
          event.preventDefault();
          this.mouse.x = (event.offsetX / window.innerWidth) * 2 - 1;
          this.mouse.y = - (event.offsetY / window.innerHeight) * 2 + 1;
@@ -1318,7 +1318,7 @@ export default class ThreeDigitalTwin {
              this.dispatch('intersectObject', intersects[0].object);
  
          }
-     }*/
+    }
 
     clear() {
         var context = this.canvas.getContext("2d");
@@ -1326,6 +1326,7 @@ export default class ThreeDigitalTwin {
     }
 
     findObjectThroughUUID(object, objects, otherObjects, anotherObjects) {
+        console.log("object",object);
         var foundElement = false;
         var foundObject = null;
         if (object) {
