@@ -24,6 +24,8 @@ CameraControls.install({ THREE: THREE });
 
 const near = 5;
 const far = 3500;
+var offset = 0;
+
 
 const PHYSICWORLD =
 {
@@ -374,6 +376,8 @@ export default class ThreeDigitalTwin {
 
                         shape.geometry.dispose();
                     }
+
+                    offset += 1;
                 }
 
                 this.dispatch('layerloaded', layerCode);
@@ -434,7 +438,6 @@ export default class ThreeDigitalTwin {
             default:
                 console.log('default');
         }
-
     }
 
     calcVertices(feature) {
@@ -561,7 +564,7 @@ export default class ThreeDigitalTwin {
             map: textureTop || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
-            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1 // fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits - offset || -1 // fix overlapping problems
         }), new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorSide) || null,
             opacity: feature.properties.material.opacitySide,
@@ -569,7 +572,7 @@ export default class ThreeDigitalTwin {
             map: textureSide || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
-            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits - offset|| -1// fix overlapping problems
         })]
 
         var extrudeSettings = {
