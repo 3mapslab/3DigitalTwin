@@ -581,6 +581,8 @@ export default class ThreeDigitalTwin {
             bevelThickness: 1
         };
 
+        console.log("offset",material[0].polygonOffsetUnits);
+
         var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
         var mesh = new THREE.Mesh(shape3D, material);
@@ -640,6 +642,8 @@ export default class ThreeDigitalTwin {
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
             polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
         })]
+
+        console.log("offset",feature.properties.material.polygonOffsetUnits);
 
         var model;
         var mesh;
@@ -784,9 +788,7 @@ export default class ThreeDigitalTwin {
 
     removeLayer(layerCode) {
         if (layerCode) {
-            console.log("entrou", layerCode);
             var meshes = this.layers.get(layerCode);
-            console.log("mesg", meshes);
             if (meshes && meshes.length > 0) {
                 meshes.forEach(mesh => {
                     if (mesh && mesh.geometry) {
@@ -1326,7 +1328,6 @@ export default class ThreeDigitalTwin {
     }
 
     findObjectThroughUUID(object, objects, otherObjects, anotherObjects) {
-        console.log("object",object);
         var foundElement = false;
         var foundObject = null;
         if (object) {
