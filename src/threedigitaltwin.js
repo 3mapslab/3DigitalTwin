@@ -572,7 +572,7 @@ export default class ThreeDigitalTwin {
             map: textureSide || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
-            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits - offset|| -1// fix overlapping problems
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits - offset || -1// fix overlapping problems
         })]
 
         var extrudeSettings = {
@@ -583,8 +583,6 @@ export default class ThreeDigitalTwin {
             bevelSize: 0,
             bevelThickness: 1
         };
-
-        console.log("offset",material[0].polygonOffsetUnits);
 
         var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
@@ -645,8 +643,6 @@ export default class ThreeDigitalTwin {
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
             polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
         })]
-
-        console.log("offset",feature.properties.material.polygonOffsetUnits);
 
         var model;
         var mesh;
@@ -844,6 +840,8 @@ export default class ThreeDigitalTwin {
                 materialColl.face4.clone(),
                 materialColl.face5.clone(),
                 materialColl.face6.clone()];
+
+            // material = new THREE.MeshLambertMaterial({ color: object.textureColor ? object.textureColor : 0xff0000, wireframe: false });
         }
         else {
             material = new THREE.MeshLambertMaterial({ color: object.textureColor ? object.textureColor : 0xff0000, wireframe: false });
@@ -1310,19 +1308,19 @@ export default class ThreeDigitalTwin {
     }
 
     onDocumentMouseClick(event) {
-         event.preventDefault();
-         this.mouse.x = (event.offsetX / window.innerWidth) * 2 - 1;
-         this.mouse.y = - (event.offsetY / window.innerHeight) * 2 + 1;
-         // find intersections
-         var params = { Mesh: {}, Line: { threshold: 50 }, LOD: {}, Points: { threshold: 5 }, Sprite: {} };
-         this.raycaster.params = params;
-         this.raycaster.setFromCamera(this.mouse, this.camera);
-         var intersects = this.raycaster.intersectObjects(this.scene.children);
- 
-         if (intersects.length > 0) {
-             this.dispatch('intersectObject', intersects[0].object);
- 
-         }
+        event.preventDefault();
+        this.mouse.x = (event.offsetX / window.innerWidth) * 2 - 1;
+        this.mouse.y = - (event.offsetY / window.innerHeight) * 2 + 1;
+        // find intersections
+        var params = { Mesh: {}, Line: { threshold: 50 }, LOD: {}, Points: { threshold: 5 }, Sprite: {} };
+        this.raycaster.params = params;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        var intersects = this.raycaster.intersectObjects(this.scene.children);
+
+        if (intersects.length > 0) {
+            this.dispatch('intersectObject', intersects[0].object);
+
+        }
     }
 
     clear() {
