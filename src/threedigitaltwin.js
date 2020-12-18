@@ -783,6 +783,26 @@ export default class ThreeDigitalTwin {
         });
     }
 
+    loadGLTF(objPath) {
+        return new Promise((resolve) => {
+            const loader = new GLTFLoader();
+            loader.load(
+                objPath,
+                (gltf) => {
+                    gltf.scene.children.forEach((element) => {
+                        if (element.material) {
+                            element.material.metalness = 0;
+                        }
+                    });
+                    resolve(gltf);
+                },
+                (error) => {
+                    console.error(error);
+                }
+            );
+        });
+    }
+
 
 
     removeLayer(layerCode) {
