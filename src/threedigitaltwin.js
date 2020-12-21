@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 //import { extrudeGeoJSON } from 'geometry-extrude';
 import { reproject } from 'reproject';
 import proj4 from 'proj4';
@@ -341,7 +339,7 @@ export default class ThreeDigitalTwin {
         var geo = this.convertGeoJsonToWorldUnits(geojson);
         var shape = null;
         var model = null;
-        var modelAndMTL = null;
+        var modelGLTF = null;
         var values;
         var feature;
 
@@ -384,7 +382,6 @@ export default class ThreeDigitalTwin {
 
                 break;
             case "MODEL":
-
                 for (feature of geo.features) {
                     feature.layerCode = layerCode;
                     feature.properties = Object.assign({}, properties, feature.properties);
@@ -410,23 +407,22 @@ export default class ThreeDigitalTwin {
                 this.dispatch('layerloaded', layerCode);
 
                 break;
-            case "OBJ":
-
+            case "GLTF":
                 for (feature of geo.features) {
                     feature.layerCode = layerCode;
                     feature.properties = Object.assign({}, properties, feature.properties);
 
-                    modelAndMTL = await this.createModelAndMTL(feature);
+                    modelGLTF = await this.createModelGLTF(feature);
 
-                    if (modelAndMTL) {
-                        this.scene.add(modelAndMTL);
+                    if (modelGLTF) {
+                        this.scene.add(modelGLTF);
 
                         if (layerCode) {
                             values = [];
                             if (this.layers.get(layerCode)) {
                                 values = this.layers.get(layerCode);
                             }
-                            values.push(modelAndMTL);
+                            values.push(modelGLTF);
                             this.layers.set(layerCode, values);
                         }
                     }
@@ -681,7 +677,8 @@ export default class ThreeDigitalTwin {
         return mesh;
     }
 
-    async createModelAndMTL(feature) {
+    
+    async createModelGLTF(feature) {
         var coordX;
         var coordY;
         if (feature.geometry.type != "Point") {
@@ -694,7 +691,7 @@ export default class ThreeDigitalTwin {
         }
 
         var mesh;
-        await this.loadOBJAndMTL(feature.properties.model, feature.properties.modelMTL).then((object) => {
+        await this.loadGLTF(feature.properties.model).then((object) => {
 
             object.position.set(coordX - this.centerWorldInMeters[0], feature.properties.altitude, -(coordY - this.centerWorldInMeters[1]));
 
@@ -753,18 +750,6 @@ export default class ThreeDigitalTwin {
         mesh.material[1].map.repeat.set(repeatValX, repeatValY);
     }
 
-    loadOBJAndMTL(objPath, mtlPath) {
-        return new Promise((resolve) => {
-            var mtlL = new MTLLoader();
-            mtlL.load(mtlPath, (materials) => {
-                materials.preload();
-                new OBJLoader().setMaterials(materials).load(objPath, (root) => {
-                    resolve(root);
-                });
-            });
-        });
-    }
-
     loadGeometry(objectPath) {
         return new Promise((resolve) => {
             new THREE.BufferGeometryLoader().load(
@@ -794,7 +779,7 @@ export default class ThreeDigitalTwin {
                             element.material.metalness = 0;
                         }
                     });
-                    resolve(gltf);
+                    resolve(gltf.scene);
                 },
                 (error) => {
                     console.error(error);
