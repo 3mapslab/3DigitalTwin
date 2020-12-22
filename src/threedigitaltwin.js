@@ -677,7 +677,7 @@ export default class ThreeDigitalTwin {
         return mesh;
     }
 
-    
+
     async createModelGLTF(feature) {
         var coordX;
         var coordY;
@@ -1320,11 +1320,18 @@ export default class ThreeDigitalTwin {
         var params = { Mesh: {}, Line: { threshold: 50 }, LOD: {}, Points: { threshold: 5 }, Sprite: {} };
         this.raycaster.params = params;
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        var intersects = this.raycaster.intersectObjects(this.scene.children);
 
-        if (intersects.length > 0) {
-            this.dispatch('intersectObject', intersects[0].object);
-
+        try {
+            var intersects = this.raycaster.intersectObjects(this.scene.children);
+            console.log("Passou", intersects);
+            if (intersects.length > 0) {
+                this.dispatch('intersectObject', intersects[0].object);
+            }
+        }
+        catch (err) {
+            if (!(err instanceof TypeError)) {
+                console.log("err", err);
+            }
         }
     }
 
