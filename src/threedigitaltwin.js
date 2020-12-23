@@ -74,6 +74,7 @@ export default class ThreeDigitalTwin {
         this.bearingAngle.max = configs.bearingAngle && configs.bearingAngle.max ? configs.bearingAngle.max : Math.PI / 2;
 
         this.oceanVisible = configs.oceanVisible || false;
+        this.leixoesOceanVisibile = configs.leixoesOceanVisibile || false;
         this.axisHelper = configs.axisHelper || false;
 
         this.providerMapTile = configs.providerMapTile || null;
@@ -352,6 +353,34 @@ export default class ThreeDigitalTwin {
                     this.scene.add(shape);
 
                 break;
+            case "OCEAN":
+                if(this.leixoesOceanVisibile) {
+                    for (feature of geo.features) {
+                        feature.layerCode = layerCode;
+                        feature.properties = Object.assign({}, properties, feature.properties);
+
+                        shape = await this.createOcean(feature);
+                        
+                        if (shape) {
+                            this.scene.add(shape);
+
+                            if (layerCode) {
+                                values = [];
+                                if (this.layers.get(layerCode)) {
+                                    values = this.layers.get(layerCode);
+                                }
+                                values.push(shape);
+                                this.layers.set(layerCode, values);
+                            }
+                            console.log("shape", shape)
+                            shape.geometry.dispose();
+                        }
+                    }
+
+                    this.dispatch('layerloaded', layerCode);
+                }
+
+                break;
             case "EXTRUDE":
 
                 for (feature of geo.features) {
@@ -601,6 +630,49 @@ export default class ThreeDigitalTwin {
         shape3D.dispose();
 
         return mesh;
+    }
+
+    async createOcean(feature) {
+        var shapearray = this.calcVertices(feature);
+
+        var extrudeSettings = {
+            depth: feature.properties.depth,
+            bevelEnabled: false,
+            bevelSegments: 1,
+            steps: 5,
+            bevelSize: 0,
+            bevelThickness: 1
+        };
+        
+        var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
+        shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
+
+        await this._loadTexture('https://raw.githubusercontent.com/jbouny/ocean/master/assets/img/waternormals.jpg').then((texture) => {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+
+            this.ocean = new Water(
+                shape3D, {
+                textureWidth: 512,
+                textureHeight: 512,
+                waterNormals: texture,
+                alpha: 1.0,
+                sunDirection: this._skyboxLight.position.clone().normalize(),
+                sunColor: 0xffffff,
+                waterColor: 0x001e0f,
+                distortionScale: 3.7,
+                fog: this.scene.fog !== undefined
+            }
+            );
+            this.ocean.position.set(0, 0, 0);
+            this.ocean.rotateX(-Math.PI / 2);
+
+        });
+
+        this.ocean.material.dispose();
+        this.ocean.geometry.dispose();
+
+        shape3D.dispose();
+        return this.ocean;
     }
 
     async createModel(feature) {
@@ -1354,7 +1426,6 @@ export default class ThreeDigitalTwin {
 
         try {
             var intersects = this.raycaster.intersectObjects(this.scene.children);
-            console.log("Passou", intersects);
             if (intersects.length > 0) {
                 this.dispatch('intersectObject', intersects[0].object);
             }
