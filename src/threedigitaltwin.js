@@ -705,6 +705,37 @@ export default class ThreeDigitalTwin {
         return mesh;
     }
 
+    /**
+     * @param containerSize - [x,y,z] - Dimensions of single container
+     * @param gridSize - [x,y,z] -  Number of containers on each axis
+     * @param offset - Int - Space between two containers
+     * 
+     * e.g.  loadContainer([2,3,2], [100,120,5])
+    */
+   loadContainers(containerSize, gridSize, offset) {
+
+        // TODO - set coordinates and altitude
+
+        const count = gridSize[0]*gridSize[1]*gridSize[2];
+        let geometry = new THREE.BoxBufferGeometry(containerSize[0], containerSize[1], containerSize[2]);
+        let material = new THREE.MeshPhongMaterial( {color: 0x00ff00} );
+        let mesh = new THREE.InstancedMesh( geometry, material, count );
+        this.scene.add(mesh);
+        
+        const dummy = new THREE.Object3D();
+        let i = 0;
+        for ( let x = 0; x < gridSize[0]; x++ ) {
+            for ( let y = 0; y < gridSize[1]; y++ ) {
+                for ( let z = 0; z < gridSize[2]; z++ ) {
+                    
+                    dummy.position.set(x*(containerSize[0]+offset),z*(containerSize[2]+offset),y*(containerSize[1]+offset));
+                    dummy.updateMatrix();
+                    mesh.setMatrixAt( i ++, dummy.matrix );
+                }
+            }
+        }
+    }
+
     adjustTextureTopRepeat(mesh, textureSize) {
 
         mesh.geometry.computeBoundingBox();
