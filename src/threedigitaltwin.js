@@ -40,17 +40,29 @@ const PHYSICWORLD =
 export default class ThreeDigitalTwin {
 
     /**
-     * models and textures are both js Map() objects
-     * @param models - Map()
-     * @param textures - Map() - Each value in this Map, contains an  object with the following structure:
      * 
-     * {
-     *  type: 'cube' //"cube" or "regular",
-     *  texture: //The actual texture structure (already existed)
-     * }
+     * @param {Object} configs - World options
+     * @param {(Number)} configs.width - Width of the world
+     * @param {(Number)} configs.height - Height of the world
+     * @param {(Number[])} configs.center - Initial real-world coordinates of the world.
+     * @param {Object} configs.zoom - Zoom options.
+     * @param {Number} configs.zoom.start - Initial zoom of the world.
+     * @param {Number} configs.zoom.min - Min and max zoom of the world.
+     * @param {Number} configs.zoom.max - Max zoom of the world.
+     * @param {Object} configs.pitchAngle - Pitch angle options.
+     * @param {Number} configs.pitchAngle.start - Initial pitch angle of the world.
+     * @param {Number} configs.pitchAngle.min - Min and max pitch angle of the world.
+     * @param {Number} configs.pitchAngle.max - Max pitch angle of the world.
+     * @param {Object} bearingAngle - Bearing angle options.
+     * @param {Number} configs.bearingAngle.start - Initial bearing angle of the world.
+     * @param {Number} configs.bearingAngle.min - Min max bearing angle of the world.
+     * @param {Number} configs.bearingAngle.max - Max bearing angle of the world.
+     * @param {Boolean} configs.oceanVisible - Display ocean.
+     * @param {Boolean} configs.leixoesOceanVisible - Display Leixões port sea.
+     * @param {Boolean} configs.fog - Display fog.
      * 
-    */
-    constructor(configs, models, textures) {
+     */
+    constructor(configs) {
 
         this.width = configs.width || 15000;
         this.height = configs.height || 15000;
@@ -75,8 +87,8 @@ export default class ThreeDigitalTwin {
         this.bearingAngle.max = configs.bearingAngle && configs.bearingAngle.max ? configs.bearingAngle.max : Math.PI / 2;
 
         this.oceanVisible = configs.oceanVisible || false;
-        this.leixoesOceanVisibile = configs.leixoesOceanVisibile || false;
-        this.axisHelper = configs.axisHelper || false;
+        this.leixoesOceanVisible = configs.leixoesOceanVisible || false;
+        this.fog = configs.fog || true;
 
         this.providerMapTile = configs.providerMapTile || null;
         this.modeMapTile = configs.modeMapTile || null;
@@ -84,8 +96,6 @@ export default class ThreeDigitalTwin {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.scope = null;
-        this.models = models || [];
-        this.textures = textures || [];
         this.camera = null;
         this.scene = null;
         this.renderer = null;
@@ -108,8 +118,9 @@ export default class ThreeDigitalTwin {
         this.canvas = canvas;
         this.scene = new THREE.Scene();
         //this.scene.background = new THREE.Color(0xcce0ff);
-        //this.scene.fog = new THREE.Fog(0xF5F5F5, far / 4, far / 2);
-        this.scene.fog = new THREE.Fog(0xFFFFFF, far / 3, far / 2);
+        if(this.fog) {
+            this.scene.fog = new THREE.Fog(0xFFFFFF, far / 3, far / 2);
+        }
         this.camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, near, far);
         this.camera.position.set(0, this.zoom.start, 0);
 
@@ -133,20 +144,17 @@ export default class ThreeDigitalTwin {
         this.cameraControls.setBoundary(bb);
         this.cameraControls.saveState();
 
-
-
         if (axisHelper) {
             var axesHelper = new THREE.AxesHelper(this.width / 2);
             this.scene.add(axesHelper);
         }
 
-
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
         canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
 
-        this._initAllTextures();
-        this._initAllModels();
-        /*if (this.oceanVisible) */this._initOcean();
+        if(this.oceanVisible) {
+            this._initOcean();
+        }
         this._initSkyBox();
         this._initPhysicWorld();
         this._initAllTiles();
@@ -156,7 +164,7 @@ export default class ThreeDigitalTwin {
         this._3DTile.position.set(- this.centerWorldInMeters[0], 0, this.centerWorldInMeters[1]);
 
         this.animate();
-
+        this.dispatch("worldloaded");
     }
 
     _initAllTiles() {
@@ -197,27 +205,6 @@ export default class ThreeDigitalTwin {
         ];
     }
 
-    _initAllModels() {
-        for (let [key, value] of this.models) {
-            this._initModel(key, value);
-        }
-    }
-
-    /**
-     * Textures can be "regular", and are loaded with the _initMaterial function, but can also be 
-     * "cube" textures and wrap up a 6 side geometry with the _initCubeMaterial function 
-     *
-     * **/
-    _initAllTextures() {
-        for (let [key, value] of this.textures) {
-            if (value.type == "regular") {
-                this._initMaterial(key, value.texture);
-            } else if (value.type == "cube") {
-                this._initCubeMaterial(key, value.texture);
-            }
-        }
-    }
-
     _initLights() {
 
         //Ambient light
@@ -232,37 +219,8 @@ export default class ThreeDigitalTwin {
 
         //Hemisphere Light
         var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.4);
-
-
-
+        
         this.scene.add(light);
-    }
-
-    // JSON to DATA URI -> https://dopiaza.org/tools/datauri/index.php
-    _initModel(name, dataURI) {
-        // instantiate a loader
-        var loader = new THREE.BufferGeometryLoader();
-
-        // load a resource (data.uri)
-        loader.load(dataURI,
-
-            // onLoad callback
-            (geometry) => {
-                this.modelsMesh.set(name, geometry);
-
-                this.dispatch('init_' + name + "_model");
-            },
-
-            // onProgress callback
-            function (xhr) {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-            },
-
-            // onError callback
-            function (err) {
-                console.log('An error happened', err);
-            }
-        );
     }
 
     _initMaterial(name, dataURI) {
@@ -355,7 +313,7 @@ export default class ThreeDigitalTwin {
 
                 break;
             case "OCEAN":
-                if(this.leixoesOceanVisibile) {
+                if(this.leixoesOceanVisible) {
                     for (feature of geo.features) {
                         feature.layerCode = layerCode;
                         feature.properties = Object.assign({}, properties, feature.properties);
