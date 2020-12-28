@@ -14,7 +14,8 @@ import * as TWEEN from 'es6-tween';
 //import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
 import Delaunator from 'delaunator';
-import turf from 'turf';
+import { centroid } from '@turf/centroid'
+import polygon from "@turf/helpers";
 //import { Geometry } from 'three';
 
 
@@ -717,9 +718,9 @@ export default class ThreeDigitalTwin {
         var coordX;
         var coordY;
         if (feature.geometry.type != "Point") {
-            var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
-            coordX = centroid.geometry.coordinates[0];
-            coordY = centroid.geometry.coordinates[1];
+            var centroid_obj = centroid(polygon(feature.geometry.coordinates));
+            coordX = centroid_obj.geometry.coordinates[0];
+            coordY = centroid_obj.geometry.coordinates[1];
         } else {
             coordX = feature.geometry.coordinates[0];
             coordY = feature.geometry.coordinates[1];
@@ -754,9 +755,9 @@ export default class ThreeDigitalTwin {
         var coordX;
         var coordY;
         if (feature.geometry.type != "Point") {
-            var centroid = turf.centroid(turf.polygon(feature.geometry.coordinates));
-            coordX = centroid.geometry.coordinates[0];
-            coordY = centroid.geometry.coordinates[1];
+            var centroid_obj = centroid(polygon(feature.geometry.coordinates));
+            coordX = centroid_obj.geometry.coordinates[0];
+            coordY = centroid_obj.geometry.coordinates[1];
         } else {
             coordX = feature.geometry.coordinates[0];
             coordY = feature.geometry.coordinates[1];
