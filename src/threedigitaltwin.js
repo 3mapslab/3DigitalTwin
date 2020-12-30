@@ -737,11 +737,11 @@ export default class ThreeDigitalTwin {
     }
 
     /**
-     * @param containerSize - [x,y,z] - Dimensions of single container
-     * @param gridSize - [x,y,z] -  Number of containers on each axis
-     * @param offset - Int - Space between two containers
+     * @param {Number[]}containerSize - [x,y,z] - Dimensions of single container
+     * @param {Number[]} gridSize - [x,y,z] -  Number of containers on each axis
+     * @param {Number} offset - Space between two containers
      * 
-     * e.g.  loadContainer([2,3,2], [100,120,5])
+     * e.g.  loadContainers([2,3,2], [100,120,5],1)
     */
    loadContainers(containerSize, gridSize, offset) {
 
@@ -759,12 +759,32 @@ export default class ThreeDigitalTwin {
             for ( let y = 0; y < gridSize[1]; y++ ) {
                 for ( let z = 0; z < gridSize[2]; z++ ) {
                     
-                    dummy.position.set(x*(containerSize[0]+offset),z*(containerSize[2]+offset),y*(containerSize[1]+offset));
+                    dummy.position.set(x*(containerSize[0]+offset),z*(containerSize[1]+0.1),y*(containerSize[2]+offset));
                     dummy.updateMatrix();
                     mesh.setMatrixAt( i ++, dummy.matrix );
                 }
             }
         }
+
+        return mesh;
+    }
+
+    moveObjectToCoordinates(mesh, lon, lat) {
+        var coordinates = this.convertCoordinatesToUnits(lon, lat);
+        var targetPosition = new THREE.Vector3(coordinates[0] - this.centerWorldInMeters[0], mesh.position.y, -(coordinates[1] - this.centerWorldInMeters[1]));
+        mesh.position.copy(targetPosition);
+    }
+
+    rotateObject(object, axis, angle) {
+        let vector;
+        if (axis == "x")        vector = new THREE.Vector3(1,0,0);
+        else if (axis == "y")   vector = new THREE.Vector3(0,1,0);
+        else if (axis == "z")   vector = new THREE.Vector3(0,0,1);
+        object.rotateOnAxis(vector, angle)
+    }
+
+    setAltitude(object, altitude) {
+        object.position.y = altitude;
     }
 
     adjustTextureTopRepeat(mesh, textureSize) {
