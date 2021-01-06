@@ -1,18 +1,17 @@
 import * as THREE from "three";
-import { reproject } from "reproject";
-import proj4 from "proj4";
+import {utils} from "./utils.js";
 import CameraControls from 'camera-controls';
 
 CameraControls.install({ THREE: THREE });
 
 const NUM_MAX_OBJECT_LOOP = 100;
 const REFRESH_TIMEOUT = 500; //ms
-class Twin {
+class ThreeDigitalTwin {
 
-    constructor(canvas) {
+    constructor(canvas, configs) {
         this._clock = new THREE.Clock();
         this._canvas = canvas;
-        this._center = this._convertCoordinatesToWorldUnits([-8.7016652234108349, 41.185523935676713]);
+        this.setCenter(configs.coordinates);
         this._camera = null;
         this._scene = null;
         this._renderer = null;
@@ -24,7 +23,7 @@ class Twin {
     }
 
     setCenter(center) {
-        this._center = this._convertCoordinatesToWorldUnits(center);
+        this._center = utils.convertCoordinatesToWorldUnits(center);
     }
 
     /*  lon => x
@@ -45,6 +44,7 @@ class Twin {
         this._renderer.setSize(window.innerWidth, window.innerHeight);
         window.addEventListener("resize", this._onWindowResize.bind(this), false);
         this._camera.position.y = 3000;
+        this._renderer.setClearColor(0x87ceeb, 1);
 
         /// Init Camera Controls
         this._controls = new CameraControls(this._camera, this._renderer.domElement);
@@ -215,14 +215,6 @@ class Twin {
         this._scene.add(gridHelper);
     }
 
-    _convertGeoJsonToWorldUnits(geojson) {
-        return reproject(geojson, proj4.WGS84, proj4("EPSG:3785"));
-    }
-
-    _convertCoordinatesToWorldUnits(coords) {
-        return proj4("EPSG:3857", coords);
-    }
-
     _dispatch(eventName, data) {
         const event = this.events[eventName];
         if (event) {
@@ -267,4 +259,4 @@ class DispatcherEvent {
     }
 }
 
-export { Twin as default }
+export { ThreeDigitalTwin as default }
