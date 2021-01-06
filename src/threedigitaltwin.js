@@ -1,29 +1,52 @@
 import * as THREE from "three";
-import {utils} from "./utils.js";
+import * as utils from "./utils.js";
 import CameraControls from 'camera-controls';
+import * as GeoThree from 'geo-three/build/geo-three.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
 
 CameraControls.install({ THREE: THREE });
 
-const NUM_MAX_OBJECT_LOOP = 100;
-const REFRESH_TIMEOUT = 500; //ms
+// const NUM_MAX_OBJECT_LOOP = 100;
+// const REFRESH_TIMEOUT = 500; //ms
+const near = 5;
+const far = 3500;
+//var offset = 0;
+
 class ThreeDigitalTwin {
 
     constructor(canvas, configs) {
+        
+        this.width = configs.width || 15000;
+        this.height = configs.height || 15000;
+
+        this.zoom = configs.zoom || {};
+        this.zoom.start = configs.zoom && configs.zoom.start ? configs.zoom.start : 250;
+        this.zoom.min = configs.zoom && configs.zoom.min ? configs.zoom.min : 10;
+        this.zoom.max = configs.zoom && configs.zoom.max ? configs.zoom.max : 500;
+
+        this.center = configs.center || {};
+        this.center.lng = configs.center && configs.center.lng ? configs.center.lng : -8.7016652234108349;
+        this.center.lat = configs.center && configs.center.lat ? configs.center.lat : 41.185523935676713;
+        this.centerInMeters = utils.convertCoordinatesToUnits(this.center.lng, this.center.lat);
+
+        this.providerMapTile = configs.providerMapTile || null;
+        this.modeMapTile = configs.modeMapTile || null;
+
+        this.fog = configs.fog || false;
+
         this._clock = new THREE.Clock();
         this._canvas = canvas;
-        this.setCenter(configs.coordinates);
         this._camera = null;
         this._scene = null;
         this._renderer = null;
         this._controls = null;
-
         this._meshes = [];
         this._delta = 0;
         this.events = {};
-    }
 
-    setCenter(center) {
-        this._center = utils.convertCoordinatesToWorldUnits(center);
     }
 
     /*  lon => x
@@ -36,40 +59,63 @@ class ThreeDigitalTwin {
         this._scene = new THREE.Scene();
 
         /// Init Camera
-        this._camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
+        this._camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, near, far);
+        this._camera.position.set(0, this.zoom.start, 0);
 
         /// Init Render
         this._renderer = new THREE.WebGLRenderer({ canvas: this._canvas, antialias: true, powerPreference: "high-performance", physicallyCorrectLights: true });
         this._renderer.shadowMap.enabled = false;
         this._renderer.setSize(window.innerWidth, window.innerHeight);
         window.addEventListener("resize", this._onWindowResize.bind(this), false);
-        this._camera.position.y = 3000;
         this._renderer.setClearColor(0x87ceeb, 1);
 
         /// Init Camera Controls
         this._controls = new CameraControls(this._camera, this._renderer.domElement);
         this._controls.verticalDragToForward = true;
         this._controls.dollyToCursor = false;
-        this._controls.maxDistance = 5000;
+        this._controls.maxDistance = this.zoom.max;
+        this._controls.maxPolarAngle = Math.PI / 2.2;
 
         /// Init Lights
         let light = new THREE.PointLight(0xffffff);
         light.position.set(0, 150, 100);
         this._scene.add(light);
 
-        this._scene.add(new THREE.AmbientLight(0x404040));
+        //Ambient light
+        this._ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+        this._scene.add(this._ambientLight);
+
+        //Hemisphere Light
+        var hlight = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.4);
+        this._scene.add(hlight);
+
+        // Fog
+        if(this.fog) {
+            this._scene.fog = new THREE.Fog(0xFFFFFF, far/3, far/2);
+        }
 
         /// Helpers (@remove)
-        const size = 100;
-        const axesHelper = new THREE.AxesHelper(size);
-        this._scene.add(axesHelper);
+        // const size = 100;
+        // const axesHelper = new THREE.AxesHelper(size);
+        // this._scene.add(axesHelper);
+
+        // Create a map tiles provider object
+        var provider = new GeoThree.MapBoxProvider(
+            "pk.eyJ1IjoidHJpZWRldGkiLCJhIjoiY2oxM2ZleXFmMDEwNDMzcHBoMWVnc2U4biJ9.jjqefEGgzHcutB1sr0YoGw",
+            "mapbox/streets-v10",
+            GeoThree.MapBoxProvider.STYLE
+        );
+
+        // Create the map view and add it to your THREE scene
+        var map = new GeoThree.MapView(GeoThree.MapView.PLANAR, provider);
+        map.position.set(-this.centerInMeters[0], 0, this.centerInMeters[1]);
+        this._scene.add(map);
 
         this._animate();
 
     }
 
     _onWindowResize() {
-
         this._camera.aspect = window.innerWidth / window.innerHeight;
         this._camera.updateProjectionMatrix();
         this._renderer.setSize(window.innerWidth, window.innerHeight);
@@ -94,42 +140,24 @@ class ThreeDigitalTwin {
         }
     }
 
-    _dispatchLoop() {
-
-        let dispatchCount = 0;
-
-        for (let i = 0; i < this._meshes.length; i++) {
-
-            let mesh = this._meshes[i];
-            console.log(mesh);
-            this._scene.add(mesh);
-            this._meshes.splice(i, 1);
-
-            dispatchCount++;
-
-            if (dispatchCount == NUM_MAX_OBJECT_LOOP) {
-                break;
-            }
-
-        }
-    }
-
-    _animate(now) {
-
-        // each X seconds
-        if (!this._last || now - this._last >= REFRESH_TIMEOUT) {
-            this._last = now;
-            this._dispatchLoop();
-        }
+    _animate() {
 
         const delta = this._clock.getDelta();
         this._controls.update(delta);
 
         requestAnimationFrame(this._animate.bind(this));
 
-        //if (hasControlsUpdated) {
         this._renderer.render(this._scene, this._camera);
-        //}
+        
+    }
+
+    onWindowResize() {
+
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+
     }
 
     removeSceneLayers() {
@@ -180,34 +208,163 @@ class ThreeDigitalTwin {
         return mesh;
     }
 
-    _calcVertices(geometry) {
+    calcVertices(feature) {
         var vecs2 = [];
         var vertices = [];
 
-        for (var P of geometry.coordinates) {
-            if (geometry.type === "MultiPolygon") {
-                P = P[0];
+        for (var P of feature.geometry.coordinates) {
+
+            outerP = P;
+
+            if (feature.geometry.type === "MultiPolygon") {
+                var outerP = P[0];
             }
 
-            var p0 = new THREE.Vector2(
-                P[0][0] - this._center[0], //adjust to center
-                P[0][1] - this._center[1] //adjust to center
-            );
-            for (var i = 1; i < P.length; ++i) {
-                var p1 = new THREE.Vector2(
-                    P[i][0] - this._center[0], //adjust to center
-                    P[i][1] - this._center[1] //adjust to center
-                );
+            var p0 = new THREE.Vector2(outerP[0][0], outerP[0][1]);
+            for (let i = 1; i < outerP.length; ++i) {
+
+                var p1 = new THREE.Vector2(outerP[i][0], outerP[i][1]);
                 vecs2.push(p0, p1);
                 p0 = p1;
             }
 
-            vertices.push(new THREE.Shape(vecs2));
+            var shape = new THREE.Shape(vecs2)
 
+            // iterate through holes
+            for (let i = 1; i < P.length; ++i) {
+
+                let hole = P[i];
+                let points = [];
+
+                for (let j = 0; j < hole.length; ++j) {
+                    points.push(new THREE.Vector2(hole[j][0], hole[j][1]))
+                }
+
+                let path = new THREE.Path(points);
+                shape.holes.push(path);
+            }
+
+            vertices.push(shape);
             vecs2 = [];
         }
 
         return vertices;
+    }
+
+    /**
+     * Adds an object to the scene in the given coordinates, given a path
+     * @param {string} modelPath - File path or URL of the object
+     * @param {Array} coordinates - Real world coordinates of the object
+     * @param {Object} rotation - Rotation of object in the 3 axes e.g. {x:1,y:0,z:0}
+     * @param {number} scale - Scale of the object
+     * @param {number} altitude - Altitude of the object
+     */
+    _loadModel(modelPath, coordinates, rotation, scale, altitude, lod_distance) {
+
+        var extensionValue = modelPath.split('.').pop();
+        var loader;
+
+        switch (extensionValue) {
+            case ("kmz"):
+                loader = new KMZLoader();
+                break;
+
+            case ("gltf"):
+                loader = new GLTFLoader();
+                break;
+
+            case ("obj"):
+                new OBJLoader2().load(modelPath,
+
+                    (model) => {
+
+                        var units = utils.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                        var targetPosition = new THREE.Vector3(units[0] - this.centerInMeters[0], altitude || 0, -(units[1] - this.centerInMeters[1]));
+
+                        if (rotation) {
+                            model.rotation.x = rotation.x;
+                            model.rotation.y = rotation.y;
+                            model.rotation.z = rotation.z;
+                        }
+
+                        if (scale) {
+                            model.scale.copy(new THREE.Vector3(scale, scale, scale));
+                        }
+
+                        // Adding 2 levels of detail
+                        const lod = new THREE.LOD();
+                        lod.addLevel(model.scene, 0);
+                        // empty cube 
+                        const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
+                        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                        const cube = new THREE.Mesh(geometry, material);
+                        if (lod_distance == "low") lod.addLevel(cube, 500);
+                        else lod.addLevel(cube, 1500);
+                        lod.position.copy(targetPosition);
+
+                        this._scene.add(lod);
+                    },
+
+                    undefined,
+
+                    // onError callback
+                    (error) => {
+                        console.log('Error with model', modelPath);
+                        console.log(error);
+                    });
+                return;
+
+            case ("dae"):
+                loader = new ColladaLoader();
+                break;
+
+            default:
+                break;
+        }
+
+        loader.load(
+            // resource URL
+            modelPath,
+            // onLoad callback
+            (model) => {
+
+                var units = utils.convertCoordinatesToUnits(coordinates[0], coordinates[1]);
+                var targetPosition = new THREE.Vector3(units[0] - this.centerInMeters[0], altitude || 0, -(units[1] - this.centerInMeters[1]));
+
+                if (rotation) {
+                    model.rotation.x = rotation.x;
+                    model.rotation.y = rotation.y;
+                    model.rotation.z = rotation.z;
+                }
+
+                if (scale) {
+                    model.scene.scale.copy(new THREE.Vector3(scale, scale, scale));
+                }
+
+                // Adding 2 levels of detail
+                const lod = new THREE.LOD();
+                lod.addLevel(model.scene, 0);
+                // empty cube 
+                const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
+                const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                const cube = new THREE.Mesh(geometry, material);
+                if (lod_distance == "low") lod.addLevel(cube, 500);
+                else lod.addLevel(cube, 1500);
+                lod.position.copy(targetPosition);
+
+                this._scene.add(lod);
+            },
+
+            // onProgress callback
+            undefined,
+
+            // onError callback
+            (error) => {
+                console.log('Error with model', modelPath);
+                console.log(error);
+            }
+        );
+
     }
 
     showGridHelper() {
