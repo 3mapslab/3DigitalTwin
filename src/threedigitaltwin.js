@@ -7,6 +7,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
 import TwinScene from "./twinscene.js";
 import * as TwinGeoJson from "./twingeojson.js"
+import TwinObject from "./twinobject.js"
 
 CameraControls.install({ THREE: THREE });
 
@@ -18,6 +19,11 @@ export default class ThreeDigitalTwin extends TwinScene {
 
     loadLayer(layerCode, geojson, properties, type) {
         TwinGeoJson.loadLayer(layerCode, geojson, properties, type, this.centerInMeters, this.scene)
+    }
+
+    loadInstancedMesh(geometry,material,positions) {
+        console.log("tutturu")
+        new TwinObject().loadInstancedMesh(geometry,material,positions,this.scene)
     }
 
     _onWindowResize() {
