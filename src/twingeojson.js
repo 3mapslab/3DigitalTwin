@@ -37,11 +37,12 @@ export async function loadLayer(layerCode, geojson, properties, type, center, sc
             }
 
             // this.dispatch('layerloaded', layerCode);
+
             break;
 
         case "GLTF":
 
-        for (let feature of geo.features) {
+            for (let feature of geo.features) {
                 feature.layerCode = layerCode;
                 feature.properties = Object.assign({}, properties, feature.properties);
 

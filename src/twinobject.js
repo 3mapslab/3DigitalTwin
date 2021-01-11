@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { centroid } from '@turf/centroid'
 import { polygon } from "@turf/helpers";
-//import * as utils from "./utils.js";
+import * as utils from "./utils.js";
 
 export default class TwinObject extends THREE.Mesh {
 
@@ -240,18 +240,20 @@ export default class TwinObject extends THREE.Mesh {
      */
     loadInstancedMesh(geometry, material, positions, scene) {
 
-        console.log("aaaa")
-
         let mesh = new THREE.InstancedMesh( geometry, material, positions.length );
         scene.add(mesh);
         
         const dummy = new THREE.Object3D();
         scene.add(mesh);
 
+        let center_lng = -8.7016652234108349;
+        let center_lat = 41.185523935676713;
+        let centerInMeters = utils.convertCoordinatesToUnits(center_lng, center_lat);
+
         for (let i = 0; i < positions.length; i++ ) {
-                    
-            dummy.position.set(positions[i].x, positions[i].y, positions[i].z);
-            console.log(dummy)
+            let units = utils.convertCoordinatesToUnits(positions[i].x, positions[i].z)
+            dummy.position.set(units[0] - centerInMeters[0], positions[i].y, -(units[1] - centerInMeters[1]));
+            dummy.rotation.set(0,Math.PI/4.5,0);  
             dummy.updateMatrix();
             mesh.setMatrixAt( i, dummy.matrix );
         }
