@@ -7,7 +7,7 @@ import * as utils from "./utils.js";
 export default class TwinObject extends THREE.Mesh {
 
     constructor(properties) {
-        super()
+        super();
         this.properties = properties;
     }
 
@@ -238,17 +238,13 @@ export default class TwinObject extends THREE.Mesh {
      * @param {*} material 
      * @param {*} positions - e.g. {x: 1, y,: 1, z: 1}
      */
-    loadInstancedMesh(geometry, material, positions, scene) {
+    loadInstancedMesh(geometry, material, positions, scene, centerInMeters) {
 
         let mesh = new THREE.InstancedMesh( geometry, material, positions.length );
         scene.add(mesh);
         
         const dummy = new THREE.Object3D();
         scene.add(mesh);
-
-        let center_lng = -8.7016652234108349;
-        let center_lat = 41.185523935676713;
-        let centerInMeters = utils.convertCoordinatesToUnits(center_lng, center_lat);
 
         for (let i = 0; i < positions.length; i++ ) {
             let units = utils.convertCoordinatesToUnits(positions[i].x, positions[i].z)

@@ -22,8 +22,7 @@ export default class ThreeDigitalTwin extends TwinScene {
     }
 
     loadInstancedMesh(geometry,material,positions) {
-        console.log("tutturu")
-        new TwinObject().loadInstancedMesh(geometry,material,positions,this.scene)
+        new TwinObject().loadInstancedMesh(geometry,material,positions,this.scene, this.centerInMeters)
     }
 
     _onWindowResize() {
