@@ -14,8 +14,8 @@ import * as TWEEN from 'es6-tween';
 //import { MeshLine, MeshLineMaterial } from 'three.meshline';
 import * as ThreeGeo from 'geo-three/build/geo-three.js';
 import Delaunator from 'delaunator';
-import { centroid } from '@turf/centroid'
-import polygon from "@turf/helpers";
+import centroid from '@turf/centroid';
+import { polygon } from "@turf/helpers";
 //import { Geometry } from 'three';
 
 
@@ -118,7 +118,7 @@ export default class ThreeDigitalTwin {
         this.canvas = canvas;
         this.scene = new THREE.Scene();
         //this.scene.background = new THREE.Color(0xcce0ff);
-        if(this.fog) {
+        if (this.fog) {
             this.scene.fog = new THREE.Fog(0xFFFFFF, far / 3, far / 2);
         }
         this.camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, near, far);
@@ -152,7 +152,7 @@ export default class ThreeDigitalTwin {
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
         canvas.addEventListener('click', this.onDocumentMouseClick.bind(this), false);
 
-        if(this.oceanVisible) {
+        if (this.oceanVisible) {
             this._initOcean();
         }
         this._initSkyBox();
@@ -219,7 +219,7 @@ export default class ThreeDigitalTwin {
 
         //Hemisphere Light
         var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.4);
-        
+
         this.scene.add(light);
     }
 
@@ -313,13 +313,13 @@ export default class ThreeDigitalTwin {
 
                 break;
             case "OCEAN":
-                if(this.leixoesOceanVisible) {
+                if (this.leixoesOceanVisible) {
                     for (feature of geo.features) {
                         feature.layerCode = layerCode;
                         feature.properties = Object.assign({}, properties, feature.properties);
 
                         shape = await this.createOcean(feature);
-                        
+
                         if (shape) {
                             this.scene.add(shape);
 
@@ -602,7 +602,7 @@ export default class ThreeDigitalTwin {
             bevelSize: 0,
             bevelThickness: 1
         };
-        
+
         var shape3D = new THREE.ExtrudeBufferGeometry(shapearray, extrudeSettings);
         shape3D.translate(-this.centerWorldInMeters[0], -this.centerWorldInMeters[1], feature.properties.altitude);
 
@@ -653,23 +653,25 @@ export default class ThreeDigitalTwin {
             textureSide.flipY = false;
         }
 
-        var material = [new THREE.MeshPhongMaterial({
+        var topMat = new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorTop) || null,
             opacity: feature.properties.material.opacityTop,
             transparent: true,
             map: textureTop || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
-            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1 // fix overlapping problems
-        }), new THREE.MeshPhongMaterial({
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits - offset || -1 // fix overlapping problems
+        });
+        var sideMat = new THREE.MeshPhongMaterial({
             color: new THREE.Color(feature.properties.material.colorSide) || null,
             opacity: feature.properties.material.opacitySide,
             transparent: true,
             map: textureSide || null,
             polygonOffset: feature.properties.material.polygonOffset || false, // fix overlapping problems
             polygonOffsetFactor: feature.properties.material.polygonOffsetFactor || -1, // fix overlapping problems
-            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits || -1// fix overlapping problems
-        })]
+            polygonOffsetUnits: feature.properties.material.polygonOffsetUnits - offset || -1// fix overlapping problems
+        });
+        var material = [sideMat, sideMat, topMat, topMat, sideMat, sideMat];
 
         var model;
         var mesh;
@@ -743,25 +745,25 @@ export default class ThreeDigitalTwin {
      * 
      * e.g.  loadContainers([2,3,2], [100,120,5],1)
     */
-   loadContainers(containerSize, gridSize, offset) {
+    loadContainers(containerSize, gridSize, offset) {
 
         // TODO - set coordinates and altitude
 
-        const count = gridSize[0]*gridSize[1]*gridSize[2];
+        const count = gridSize[0] * gridSize[1] * gridSize[2];
         let geometry = new THREE.BoxBufferGeometry(containerSize[0], containerSize[1], containerSize[2]);
-        let material = new THREE.MeshPhongMaterial( {color: 0x00ff00} );
-        let mesh = new THREE.InstancedMesh( geometry, material, count );
+        let material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+        let mesh = new THREE.InstancedMesh(geometry, material, count);
         this.scene.add(mesh);
-        
+
         const dummy = new THREE.Object3D();
         let i = 0;
-        for ( let x = 0; x < gridSize[0]; x++ ) {
-            for ( let y = 0; y < gridSize[1]; y++ ) {
-                for ( let z = 0; z < gridSize[2]; z++ ) {
-                    
-                    dummy.position.set(x*(containerSize[0]+offset),z*(containerSize[1]+0.1),y*(containerSize[2]+offset));
+        for (let x = 0; x < gridSize[0]; x++) {
+            for (let y = 0; y < gridSize[1]; y++) {
+                for (let z = 0; z < gridSize[2]; z++) {
+
+                    dummy.position.set(x * (containerSize[0] + offset), z * (containerSize[1] + 0.1), y * (containerSize[2] + offset));
                     dummy.updateMatrix();
-                    mesh.setMatrixAt( i ++, dummy.matrix );
+                    mesh.setMatrixAt(i++, dummy.matrix);
                 }
             }
         }
@@ -777,9 +779,9 @@ export default class ThreeDigitalTwin {
 
     rotateObject(object, axis, angle) {
         let vector;
-        if (axis == "x")        vector = new THREE.Vector3(1,0,0);
-        else if (axis == "y")   vector = new THREE.Vector3(0,1,0);
-        else if (axis == "z")   vector = new THREE.Vector3(0,0,1);
+        if (axis == "x") vector = new THREE.Vector3(1, 0, 0);
+        else if (axis == "y") vector = new THREE.Vector3(0, 1, 0);
+        else if (axis == "z") vector = new THREE.Vector3(0, 0, 1);
         object.rotateOnAxis(vector, angle)
     }
 

@@ -1,7 +1,7 @@
 {
   "name": "@triedeti/threedigitaltwin",
   "version": "1.0.18",
-  "main": "dist/old_threedigitaltwin.js",
+  "main": "dist/threedigitaltwin.js",
   "scripts": {
     "build": "npm install"
   },
