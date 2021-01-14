@@ -1,7 +1,7 @@
 {
   "name": "@triedeti/threedigitaltwin",
   "version": "1.0.18",
-  "main": "dist/threedigitaltwin.js",
+  "main": "dist/old_threedigitaltwin.js",
   "scripts": {
     "build": "npm install"
   },
@@ -12,6 +12,8 @@
     "3d"
   ],
   "dependencies": {
+    "@turf/centroid": "^6.2.0",
+    "@turf/helpers": "^6.2.0",
     "camera-controls": "^1.22.1",
     "delaunator": "^4.0.1",
     "es6-tween": "^5.5.11",
