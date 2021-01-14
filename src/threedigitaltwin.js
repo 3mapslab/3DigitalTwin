@@ -6,8 +6,7 @@ import { KMZLoader } from 'three/examples/jsm/loaders/KMZLoader.js';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { OBJLoader2 } from 'three/examples/jsm/loaders/OBJLoader2.js';
 import TwinScene from "./twinscene.js";
-import * as TwinGeoJson from "./twingeojson.js"
-import TwinObject from "./twinobject.js"
+import TwinLoader from "./twinloader.js"
 
 CameraControls.install({ THREE: THREE });
 
@@ -15,14 +14,15 @@ export default class ThreeDigitalTwin extends TwinScene {
 
     constructor(canvas, configs) {
         super(canvas, configs);
+        this.loader = new TwinLoader(this.centerInMeters, this.scene);
     }
 
-    loadLayer(layerCode, geojson, properties, type) {
-        TwinGeoJson.loadLayer(layerCode, geojson, properties, type, this.centerInMeters, this.scene)
+    loadLayer(geojson, properties, type) {
+        this.loader.loadLayer(geojson, properties, type)
     }
 
     loadInstancedMesh(geometry,material,positions) {
-        new TwinObject().loadInstancedMesh(geometry,material,positions,this.scene, this.centerInMeters)
+        this.loader.loadInstancedMesh(geometry,material,positions)
     }
 
     _onWindowResize() {
