@@ -58,7 +58,7 @@ export default class TwinScene {
         this.controls.verticalDragToForward = true;
         this.controls.dollyToCursor = false;
         this.controls.maxDistance = this.zoom.max;
-        this.controls.maxPolarAngle = Math.PI / 2.2;
+        this.controls.maxPolarAngle = Math.PI;
 
         /// Init Lights
         let light = new THREE.PointLight(0xffffff);
