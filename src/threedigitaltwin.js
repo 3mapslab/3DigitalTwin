@@ -18,11 +18,11 @@ export default class ThreeDigitalTwin extends TwinScene {
     }
 
     loadLayer(geojson, properties, type) {
-        this.loader.loadLayer(geojson, properties, type)
+        this.loader.loadLayer(geojson, properties, type);
     }
 
     loadInstancedMesh(geometry,material,positions) {
-        this.loader.loadInstancedMesh(geometry,material,positions)
+        return this.loader.loadInstancedMesh(geometry,material,positions);
     }
 
     _onWindowResize() {
@@ -33,10 +33,10 @@ export default class ThreeDigitalTwin extends TwinScene {
 
     _clearThree(obj) {
         while (obj.children.length > 0) {
-            this._clearThree(obj.children[0])
+            this._clearThree(obj.children[0]);
             obj.remove(obj.children[0]);
         }
-        if (obj.geometry) obj.geometry.dispose()
+        if (obj.geometry) obj.geometry.dispose();
 
         if (obj.material) {
             //in case of map, bumpMap, normalMap, envMap ...

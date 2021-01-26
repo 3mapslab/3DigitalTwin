@@ -29,6 +29,7 @@ export default class TwinLoader {
         const dummy = new THREE.Object3D();
         this.scene.add(mesh);
 
+        mesh.instanceMatrix.needsUpdate = true;
         for (let i = 0; i < positions.length; i++) {
             let units = utils.convertCoordinatesToUnits(positions[i].x, positions[i].z)
             dummy.position.set(units[0] - this.center[0], positions[i].y, -(units[1] - this.center[1]));
@@ -36,7 +37,7 @@ export default class TwinLoader {
             dummy.updateMatrix();
             mesh.setMatrixAt(i, dummy.matrix);
         }
-
+        
         return mesh;
     }
 
