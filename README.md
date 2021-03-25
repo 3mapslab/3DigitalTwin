@@ -37,10 +37,6 @@ Please, fork this repository, make any changes and submit a Pull Request and we 
 The easiest way to seek support is by submiting an issue on this repo.
 Also, reach out to us at one of the following places!
 
-- Website at <a href="https://triedeti.pt" target="_blank">`TriedeTI`</a>
-- Twitter at <a href="https://twitter.com/TriedeTi" target="_blank">`@triedeti`</a>
-- Facebook at <a href="https://facebook.com/triedeti" target="_blank">`@triedeti`</a>
-
 ---
 
 ## License
